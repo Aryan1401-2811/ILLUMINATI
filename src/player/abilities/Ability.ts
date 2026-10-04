@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { Element } from '@/combat/types';
+import type { Element, Hit, HitResult } from '@/combat/types';
 import type { GameScene } from '@/core/GameScene';
 import type { Player } from '../Player';
 
@@ -38,6 +38,17 @@ export abstract class Ability {
   /** One emoji/glyph or short text for the HUD slot until real icons exist. */
   readonly glyph: string = '✦';
 
+  /**
+   * Channelled ability: active while the key is HELD (e.g. a guard that absorbs attacks).
+   * Then cast() runs on press, onHold() every frame while held, onRelease() when let go.
+   * Cooldown starts on release.
+   */
+  readonly channel: boolean = false;
+  /** Channel: max seconds it can be held (auto-releases after). */
+  readonly maxHold: number = 3;
+  /** Channel: movement speed multiplier while holding (0 = rooted). */
+  readonly holdMoveFactor: number = 0.35;
+
   cooldownLeft = 0;
 
   canCast(player: Player): boolean {
@@ -46,6 +57,23 @@ export abstract class Ability {
 
   /** Do the thing. Energy is already spent and cooldown started when this runs. */
   abstract cast(ctx: AbilityContext): void;
+
+  /** Channel only: every frame while held. Return false to end the channel early. */
+  onHold(_ctx: AbilityContext, _dt: number): boolean {
+    return true;
+  }
+
+  /** Channel only: key released (or maxHold reached / interrupted by a hit). */
+  onRelease(_ctx: AbilityContext): void {}
+
+  /**
+   * Channel only: the player is about to be hit while channelling. Return a HitResult
+   * (e.g. 'blocked') to swallow the hit — like absorbing an energy bolt into charge.
+   * Return null to let it through (which also interrupts the channel).
+   */
+  interceptHit(_ctx: AbilityContext, _hit: Hit): HitResult | null {
+    return null;
+  }
 
   /** Called every frame (cooldowns). Override for channelled abilities but call super. */
   update(dt: number): void {

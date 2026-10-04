@@ -18,7 +18,7 @@ export const HERO_MODEL = {
   anims: { idle: 'Idle', run: 'Running', attack: 'Punch', dodge: 'Jump', cast: 'Punch', death: 'Death', victory: 'ThumbsUp', walk: 'Walking' },
 };
 
-export type PlayerState = 'move' | 'attack' | 'dodge' | 'cast' | 'hurt' | 'dead' | 'locked';
+export type PlayerState = 'move' | 'attack' | 'dodge' | 'cast' | 'channel' | 'hurt' | 'dead' | 'locked';
 
 const ABILITY_ACTIONS: Action[] = ['ability1', 'ability2', 'ability3'];
 const _v = new THREE.Vector3();
@@ -74,6 +74,7 @@ export class Player extends Entity implements Hurtbox {
   private walkTarget: THREE.Vector3 | null = null;
   private walkResolve: (() => void) | null = null;
   private castTimeLeft = 0;
+  private channelSlot = -1;
 
   constructor() {
     super();
@@ -184,6 +185,11 @@ export class Player extends Entity implements Hurtbox {
 
   receiveHit(hit: Hit): HitResult {
     if (this.state === 'dead' || this.invulnerable) return 'immune';
+    if (this.state === 'channel') {
+      const intercepted = this.abilities[this.channelSlot]?.interceptHit(this.abilityContext(), hit);
+      if (intercepted) return intercepted;
+      this.endChannel();
+    }
     this.hp = Math.max(0, this.hp - hit.amount);
     this.model?.flash('#ff3b3b', 0.18);
     _v.subVectors(this.position, hit.from).setY(0);
@@ -227,6 +233,9 @@ export class Player extends Entity implements Hurtbox {
       case 'dodge':
         this.updateDodge();
         break;
+      case 'channel':
+        this.updateChannel(dt);
+        break;
       case 'cast':
         this.velocity.multiplyScalar(Math.exp(-20 * dt));
         if (this.stateTime >= this.castTimeLeft) this.setState('move');
@@ -266,16 +275,17 @@ export class Player extends Entity implements Hurtbox {
     this.aimDir.normalize();
   }
 
-  private updateMove(dt: number) {
+  private updateMove(dt: number, speedFactor = 1) {
     input.moveVector(_move);
     // camera looks toward -Z, so screen-up is world -Z
-    const target = _v.set(_move.x, 0, -_move.y).multiplyScalar(PLAYER.moveSpeed);
+    const target = _v.set(_move.x, 0, -_move.y).multiplyScalar(PLAYER.moveSpeed * speedFactor);
     const accel = PLAYER.acceleration * dt;
     const delta = target.sub(this.velocity);
     if (delta.length() > accel) delta.setLength(accel);
     this.velocity.add(delta);
 
     const speed = this.velocity.length();
+    if (speedFactor < 1) return; // channelling: caller handles facing + animation
     if (_move.lengthSq() > 0.01) this.yaw = Math.atan2(this.velocity.x, this.velocity.z);
     this.model?.play(speed > 0.6 ? HERO_MODEL.anims.run : HERO_MODEL.anims.idle, {
       timeScale: speed > 0.6 ? THREE.MathUtils.clamp(speed / PLAYER.moveSpeed, 0.6, 1.2) : 1,
@@ -302,15 +312,45 @@ export class Player extends Entity implements Hurtbox {
     const ability = this.abilities[slot];
     if (!ability || !ability.canCast(this)) return false;
     this.spendEnergy(ability.cost);
-    ability.cooldownLeft = ability.cooldown;
     this.yaw = Math.atan2(this.aimDir.x, this.aimDir.z);
     this.object.rotation.y = this.yaw;
-    this.castTimeLeft = ability.castTime;
-    this.setState('cast');
-    this.model?.play(ability.castAnim, { loop: false, restart: true, timeScale: 2.2, fade: 0.05 });
-    ability.cast({ player: this, scene: this.scene, aimPoint: this.aimPoint.clone(), aimDir: this.aimDir.clone() });
+    if (ability.channel) {
+      this.channelSlot = slot;
+      this.setState('channel');
+      this.model?.play(ability.castAnim, { loop: false, restart: true, timeScale: 1.5, fade: 0.05 });
+    } else {
+      ability.cooldownLeft = ability.cooldown;
+      this.castTimeLeft = ability.castTime;
+      this.setState('cast');
+      this.model?.play(ability.castAnim, { loop: false, restart: true, timeScale: 2.2, fade: 0.05 });
+    }
+    ability.cast(this.abilityContext());
     events.emit('player:ability', { id: ability.id, position: this.position.clone() });
     return true;
+  }
+
+  private abilityContext() {
+    return { player: this, scene: this.scene, aimPoint: this.aimPoint.clone(), aimDir: this.aimDir.clone() };
+  }
+
+  private updateChannel(dt: number) {
+    const ability = this.abilities[this.channelSlot];
+    if (!ability) return this.endChannel();
+    this.updateMove(dt, ability.holdMoveFactor);
+    this.yaw = Math.atan2(this.aimDir.x, this.aimDir.z);
+    const held = input.held(ABILITY_ACTIONS[this.channelSlot]);
+    const keep = ability.onHold(this.abilityContext(), dt);
+    if (!held || !keep || this.stateTime >= ability.maxHold) this.endChannel();
+  }
+
+  /** Stop channelling (release, timeout, or interrupted). */
+  private endChannel() {
+    const ability = this.abilities[this.channelSlot];
+    this.channelSlot = -1;
+    if (this.state === 'channel') this.setState('move');
+    if (!ability) return;
+    ability.cooldownLeft = ability.cooldown;
+    ability.onRelease(this.abilityContext());
   }
 
   private startDodge() {
