@@ -4,6 +4,7 @@ import { events } from '@/core/events';
 import { buildPlaygroundArena } from '@/world/Arena';
 import { ModelGallery } from './ModelGallery';
 import { Soul } from '../Soul';
+import '../install'; // effects for every scene, see install.ts
 
 /**
  * Visuals sandbox.  ?scene=visuals&debug
