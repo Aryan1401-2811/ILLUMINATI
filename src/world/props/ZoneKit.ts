@@ -224,7 +224,7 @@ function prepare(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: THREE.
 }
 
 /** Same shape, but normals averaged across each corner so the inverted-hull outline has no gaps. */
-function smoothNormalCopy(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+export function smoothNormalCopy(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   const pos = geo.getAttribute('position');
   const nor = geo.getAttribute('normal');
   const sums = new Map<string, THREE.Vector3>();

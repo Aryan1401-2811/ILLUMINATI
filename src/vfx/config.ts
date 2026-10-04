@@ -93,3 +93,19 @@ export const BUZZ_FX = {
 };
 
 export const AFTERIMAGE_FX = { ghosts: 3, gap: 0.055, life: 0.3, opacity: 0.4 };
+
+/** The twist: the world comes apart. */
+export const COLLAPSE_FX = {
+  durationSec: 7,
+  radius: 14,
+  cracks: 8,
+  /** Fraction of the duration it takes the cracks to reach the rim. */
+  crackGrowth: 0.4,
+  slabs: 14,
+  /** Slabs never land closer than this to the centre (the hero and the Warden are there). */
+  safeRadius: 4.5,
+  gravity: 26,
+  rumble: 0.11,
+  landingShake: 0.32,
+  scrapsPerSec: 34,
+};
