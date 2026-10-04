@@ -55,6 +55,8 @@ export interface GameEvents {
   'narrator:say': { text: string; speaker?: 'narrator' | 'warden' | 'hero'; durationSec?: number };
   /** Narrator caption box size, 0 (tiny) .. 1 (fills screen corner). */
   'narrator:growth': { value: number };
+  /** New game: restore the unbroken caption box (growth is re-read from runState). */
+  'narrator:reset': Record<string, never>;
   /** Show a tutorial prompt like "Press SPACE to dodge". */
   'ui:prompt': { text: string; durationSec?: number };
 
