@@ -25,7 +25,7 @@ const C = {
   roadDot: 'rgba(196,120,40,0.34)',
   kerb: '#fffaf0',
   paint: '#fffaf0',
-  sun: 'rgba(255,255,240,0.5)',
+  sun: 'rgba(255,255,240,0.3)',
   red: '#e8463a',
   teal: '#3fb6a8',
 };

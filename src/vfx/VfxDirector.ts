@@ -4,9 +4,14 @@ import { events, type GameEvents } from '@/core/events';
 import type { GameScene } from '@/core/GameScene';
 import { livePalette } from '@/render/palette';
 import { AmbientParticles } from './AmbientParticles';
+import { Player } from '@/player/Player';
 import { ComicWords } from './ComicWords';
+import { DodgeAfterimage } from './DodgeAfterimage';
+import { EnergyAura } from './EnergyAura';
+import { GoldBuzz } from './GoldBuzz';
+import { Wisp } from './Wisp';
 import { ImpactFx, elementColor } from './ImpactFx';
-import { FX_COLORS, WORDS } from './config';
+import { AFTERIMAGE_FX, FX_COLORS, WORDS } from './config';
 import { fxDt } from './fxTime';
 
 /**
@@ -20,6 +25,9 @@ export class VfxDirector extends Entity {
   readonly words = new ComicWords();
   readonly impact = new ImpactFx();
   readonly ambient = new AmbientParticles();
+  private buzz = new GoldBuzz();
+  /** Seconds until each queued dodge ghost is due. */
+  private ghostQueue: number[] = [];
   private lastShatterAt = new THREE.Vector3(1e9, 0, 0);
   private lastShatterAge = 99;
 
@@ -31,7 +39,14 @@ export class VfxDirector extends Entity {
     this.object.add(this.ambient.group, this.impact.group, this.words.group);
     this.own(events.on('combat:hit', (e) => this.onHit(e)));
     this.own(events.on('fx:onomatopoeia', (e) => this.onWord(e)));
-    this.own(events.on('enemy:killed', ({ position }) => this.impact.death(position, FX_COLORS.violetSoft)));
+    this.own(
+      events.on('enemy:killed', ({ position, wisp }) => {
+        this.impact.death(position, FX_COLORS.violetSoft);
+        if (wisp) this.scene.add(new Wisp(position, this.impact));
+      }),
+    );
+    this.own(events.on('player:dodge', () => (this.ghostQueue = Array.from({ length: AFTERIMAGE_FX.ghosts }, (_, i) => i * AFTERIMAGE_FX.gap))));
+    this.scene.add(new EnergyAura());
     this.own(events.on('armour:shellBroken', ({ position }) => this.shatter(position, true)));
     this.own(events.on('armour:coreBroken', ({ position }) => this.impact.shatter(position, FX_COLORS.violetSoft)));
   }
@@ -43,6 +58,21 @@ export class VfxDirector extends Entity {
     this.words.update(step);
     // `tear` is 0 on the gold page and 1 on the violet one, and blends during the flip
     this.ambient.update(step, this.scene.cameraRig.focus, livePalette.current.tear);
+    this.buzz.update(dt, this.scene, this.impact);
+    this.updateGhosts(dt);
+  }
+
+  /** Dodge afterimages: a few frozen copies of the hero left behind along the dash. */
+  private updateGhosts(dt: number) {
+    if (!this.ghostQueue.length || dt <= 0) return;
+    this.ghostQueue = this.ghostQueue.map((t) => t - dt);
+    while (this.ghostQueue.length && this.ghostQueue[0] <= 0) {
+      this.ghostQueue.shift();
+      const player = this.scene.getFirst(Player);
+      if (!player?.model) continue;
+      const color = player.element === 'violet' ? FX_COLORS.violet : FX_COLORS.gold;
+      this.scene.add(new DodgeAfterimage(player.model.root, color));
+    }
   }
 
   onRemoved() {
