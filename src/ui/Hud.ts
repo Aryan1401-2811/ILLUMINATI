@@ -3,18 +3,17 @@ import { getGame } from '@/core/Game';
 import { Player } from '@/player/Player';
 
 /**
- * Placeholder HUD (health, energy, ability slots, basic captions/prompts) so the game
- * is testable from day one. The Narrative/UI owner replaces this with the real comic UI —
- * it is driven entirely by events, so swapping it out touches nothing else.
+ * Placeholder HUD (health, energy, ability slots, prompts) so the game is testable from
+ * day one. Narrator captions live in narrative/CaptionBox. The Narrative/UI owner replaces
+ * this with the real comic UI — it is driven entirely by events, so swapping it out touches
+ * nothing else.
  */
 export class Hud {
   readonly el: HTMLElement;
   private hpFill: HTMLElement;
   private energyFill: HTMLElement;
   private slots: HTMLElement[] = [];
-  private caption: HTMLElement;
   private prompt: HTMLElement;
-  private captionTimer = 0;
   private promptTimer = 0;
 
   constructor(root: HTMLElement) {
@@ -28,23 +27,16 @@ export class Hud {
       <div class="hud-slots">
         ${['Q / RMB', 'E', 'R'].map((k) => `<div class="hud-slot empty"><div class="glyph"></div><div class="cd"></div><div class="key">${k}</div></div>`).join('')}
       </div>
-      <div class="hud-caption hidden"></div>
       <div class="hud-prompt hidden"></div>
     `;
     root.appendChild(this.el);
     this.hpFill = this.el.querySelector('.hp .fill')!;
     this.energyFill = this.el.querySelector('.energy .fill')!;
     this.slots = [...this.el.querySelectorAll<HTMLElement>('.hud-slot')];
-    this.caption = this.el.querySelector('.hud-caption')!;
     this.prompt = this.el.querySelector('.hud-prompt')!;
 
     events.on('player:health', ({ hp, max }) => (this.hpFill.style.width = `${(hp / max) * 100}%`));
     events.on('player:energy', ({ energy, max }) => (this.energyFill.style.width = `${(energy / max) * 100}%`));
-    events.on('narrator:say', ({ text, durationSec }) => {
-      this.caption.textContent = text;
-      this.caption.classList.remove('hidden');
-      this.captionTimer = durationSec ?? Math.max(2.5, text.length * 0.06);
-    });
     events.on('ui:prompt', ({ text, durationSec }) => {
       this.prompt.textContent = text;
       this.prompt.classList.remove('hidden');
@@ -55,7 +47,6 @@ export class Hud {
   }
 
   private update(realDt: number) {
-    if (this.captionTimer > 0 && (this.captionTimer -= realDt) <= 0) this.caption.classList.add('hidden');
     if (this.promptTimer > 0 && (this.promptTimer -= realDt) <= 0) this.prompt.classList.add('hidden');
 
     const player = getGame().current?.getFirst(Player);

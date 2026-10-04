@@ -3,6 +3,7 @@ import { Game } from '@/core/Game';
 import { DEFAULT_SCENE, SCENES } from '@/core/sceneRegistry';
 import { setupDebug } from '@/core/debug';
 import { Hud } from '@/ui/Hud';
+import { CaptionBox } from '@/narrative/CaptionBox';
 
 async function boot() {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -11,6 +12,7 @@ async function boot() {
 
   const game = new Game(canvas, uiRoot);
   new Hud(uiRoot);
+  new CaptionBox(uiRoot);
   // Dev only: inspect from the browser console, e.g. game.current.getFirst(...)
   if (import.meta.env.DEV) (window as any).game = game;
 
