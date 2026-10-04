@@ -9,48 +9,83 @@ import type { Player } from '@/player/Player';
 import type { Warden } from '@/bosses/Warden';
 
 class NarratorFigure extends Entity {
+  private pages: THREE.Mesh[] = [];
+  private t = 0;
+
   constructor() {
     super();
-    // Tall figure made of golden paper and ink
-    const bodyMat = toonMaterial({ color: '#ffe666' });
-    const headMat = toonMaterial({ color: '#ffffff' }); // white caption box head
+    // Ethereal dark body with glowing golden cracks
+    const bodyMat = toonMaterial({ color: '#111111', emissive: '#443300' });
+    const headMat = toonMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.5 }); 
     
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 3, 16), bodyMat);
-    body.position.y = 1.5;
+    // Spiky, jagged body representing torn paper/ink
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.6, 3.5, 5), bodyMat);
+    body.position.y = 1.75;
     addOutline(body, 3);
     
     const head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1), headMat);
-    head.position.y = 3.6;
+    head.position.y = 3.8;
     addOutline(head, 4);
     
     this.object.add(body, head);
+    
+    // Floating pages orbiting him
+    for (let i = 0; i < 8; i++) {
+      const page = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.9), headMat);
+      page.userData = { angle: (i / 8) * Math.PI * 2, speed: 1 + Math.random(), radius: 1.2 + Math.random() * 0.8 };
+      this.pages.push(page);
+      this.object.add(page);
+    }
+  }
+
+  update(dt: number) {
+    this.t += dt;
+    this.pages.forEach((page, i) => {
+      const data = page.userData;
+      const angle = data.angle + this.t * data.speed;
+      page.position.set(Math.cos(angle) * data.radius, 1.5 + Math.sin(this.t * 2 + i) * 1.5, Math.sin(angle) * data.radius);
+      page.rotation.x = this.t * data.speed;
+      page.rotation.y = angle;
+    });
   }
 }
 
 class FallingDebris extends Entity {
+  private mesh: THREE.Mesh;
+  private trail: THREE.Mesh;
+
   constructor(pos: THREE.Vector3) {
     super();
     this.object.position.copy(pos);
-    this.object.position.y = 15;
+    this.object.position.y = 20;
     
-    const geo = new THREE.BoxGeometry(2, 2, 2);
-    const mat = toonMaterial({ color: '#222222' });
-    const mesh = new THREE.Mesh(geo, mat);
+    // Jagged, chaotic monolithic debris
+    const geo = new THREE.TetrahedronGeometry(2 + Math.random(), 1);
+    const mat = toonMaterial({ color: '#0a0a0a', emissive: '#2b00ff', emissiveIntensity: 0.1 });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
     
-    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-    this.object.add(mesh);
+    // Ghostly trail
+    this.trail = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 0.1, 8, 8),
+      new THREE.MeshBasicMaterial({ color: '#2b00ff', transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    this.trail.position.y = 4;
+    
+    this.object.add(this.mesh, this.trail);
     
     let velocity = 0;
     this.own(this.scene.game.onFrame((dt) => {
-      velocity += 30 * dt;
+      velocity += 40 * dt;
       this.object.position.y -= velocity * dt;
-      mesh.rotation.x += dt * 5;
-      mesh.rotation.y += dt * 3;
+      this.mesh.rotation.x += dt * 8;
+      this.mesh.rotation.y += dt * 6;
       
       if (this.object.position.y <= 0) {
         this.object.position.y = 0;
-        events.emit('fx:shake', { strength: 0.5 });
-        this.destroy(); // Despawns on hit to prevent clutter
+        events.emit('fx:shake', { strength: 0.7 });
+        events.emit('fx:onomatopoeia', { text: 'KRASH', position: this.position.clone(), color: '#555555', scale: 1.5 });
+        this.destroy();
       }
     }));
   }
@@ -72,6 +107,8 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     // 1. Caption Box Swell
     await seq.camera(0, 5, 8, 2);
     await seq.say("At last... the final spark to burn this miserable draft to ash!", 3.5, 'narrator');
+    await seq.say("I have watched you stumble through my chapters...", 3.5, 'narrator');
+    await seq.say("Blindly believing in your own free will.", 3, 'narrator');
     
     // 2. Shatter
     seq.beat('twist:start');
@@ -85,8 +122,10 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     const narrator = scene.add(new NarratorFigure());
     narrator.position.set(0, 0, -2);
     await seq.camera(0, 8, 12, 1.5);
-    await seq.say("Did you truly believe yourself the author of this tale? A puppet, dancing on strings woven of my ink.", 4.5, 'narrator');
-    await seq.say("Every soul you slaughtered, every drop of blood you shed... was merely ink for my quill.", 4, 'narrator');
+    await seq.say("Did you truly believe yourself the author of this tale? A puppet, dancing on strings woven of my ink.", 5, 'narrator');
+    await seq.say("Every soul you slaughtered, every drop of blood you shed... was merely ink for my quill.", 4.5, 'narrator');
+    await seq.say("And now... the story concludes. Not with a hero's triumph...", 4, 'narrator');
+    await seq.say("But with the absolute erasure of your very existence.", 4, 'narrator');
     
     // 4. Powers stripped
     seq.beat('twist:powersStripped');

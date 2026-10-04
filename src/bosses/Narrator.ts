@@ -27,6 +27,8 @@ export class NarratorBoss extends Entity implements Hurtbox {
   private t = 0;
   private velocity = new THREE.Vector3();
   private head: THREE.Mesh;
+  private pages: THREE.Mesh[] = [];
+  private phase2Aura: THREE.Mesh | null = null;
   
   constructor() {
     super();
@@ -44,6 +46,20 @@ export class NarratorBoss extends Entity implements Hurtbox {
     
     this.meshPivot.add(body, this.head);
     this.object.add(this.meshPivot);
+    
+    // Floating pages
+    for (let i = 0; i < 12; i++) {
+      const page = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.2), headMat);
+      page.userData = { angle: (i / 12) * Math.PI * 2, speed: 1.5 + Math.random(), radius: 2.5 + Math.random() * 1.5 };
+      this.pages.push(page);
+      this.meshPivot.add(page);
+    }
+    
+    // Phase 2 Corrupted Aura (hidden initially)
+    const auraGeo = new THREE.SphereGeometry(3.5, 16, 16);
+    const auraMat = new THREE.MeshBasicMaterial({ color: '#ff0000', wireframe: true, transparent: true, opacity: 0 });
+    this.phase2Aura = new THREE.Mesh(auraGeo, auraMat);
+    this.meshPivot.add(this.phase2Aura);
   }
 
   get alive(): boolean {
@@ -103,8 +119,25 @@ export class NarratorBoss extends Entity implements Hurtbox {
         this.head.rotation.z = Math.cos(this.t * 12) * 0.3;
         this.meshPivot.position.y += Math.sin(this.t * 20) * 0.15;
         this.meshPivot.rotation.z = Math.sin(this.t * 8) * 0.1;
+        
+        if (this.phase2Aura) {
+          (this.phase2Aura.material as THREE.Material).opacity = 0.4 + Math.sin(this.t * 15) * 0.2;
+          this.phase2Aura.rotation.y -= dt * 2;
+          this.phase2Aura.rotation.x += dt * 3;
+          this.phase2Aura.scale.setScalar(1 + Math.sin(this.t * 8) * 0.1);
+        }
       }
     }
+    
+    // Animate pages
+    this.pages.forEach((page, i) => {
+      const data = page.userData;
+      const speedMult = this.phase === 2 ? 3 : 1; // Faster in phase 2
+      const angle = data.angle + this.t * data.speed * speedMult;
+      page.position.set(Math.cos(angle) * data.radius, 3 + Math.sin(this.t * 3 + i) * 2, Math.sin(angle) * data.radius);
+      page.rotation.x = this.t * data.speed * speedMult;
+      page.rotation.y = angle;
+    });
     
     let targetObj: Hurtbox | null = null;
     for (const t of this.scene.combat.targets('enemy')) {
@@ -193,6 +226,13 @@ export class NarratorBoss extends Entity implements Hurtbox {
     }
     
     this.scene.add(new Shockwave(this.position, 6, '#ffc21a'));
+    
+    // Secondary faster shockwave for peak detail
+    setTimeout(() => {
+      if (this.scene.game.current === this.scene) {
+        this.scene.add(new Shockwave(this.position, 4, '#ff0000'));
+      }
+    }, 200);
     events.emit('fx:shake', { strength: 0.5 });
     events.emit('fx:onomatopoeia', { text: 'BAM', position: this.position.clone(), scale: 2 });
     
