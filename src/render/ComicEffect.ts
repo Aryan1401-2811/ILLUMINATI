@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BlendFunction, Effect } from 'postprocessing';
+import { events } from '@/core/events';
 import { livePalette } from './palette';
 
 const fragmentShader = /* glsl */ `
@@ -16,6 +17,10 @@ uniform vec3 paperColor;
 uniform vec3 gutterColor;
 uniform float buzz;
 uniform float time;
+uniform float truth;
+uniform float flip;
+uniform vec2 flipOrigin;
+uniform vec3 flipColor;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -40,7 +45,15 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
   // Grade in a perceptual space: the tone mapper hands us flat, greyish colour and a comic
   // wants bold flat ink, so push saturation and contrast back in.
-  vec3 src = inputColor.rgb;
+  // The twist flip: a shock ring bursts out of the Narrator's corner of the page. It bends the
+  // picture as it passes, so sample the scene slightly displaced along the ring.
+  float aspect = resolution.x / resolution.y;
+  vec2 fromOrigin = (uv - flipOrigin) * vec2(aspect, 1.0);
+  float ringDist = length(fromOrigin);
+  float ringRadius = flip * 2.6;
+  float ring = flip > 0.0 && flip < 1.0 ? exp(-pow((ringDist - ringRadius) / 0.07, 2.0)) * (1.0 - flip) : 0.0;
+  vec2 bend = ringDist > 0.0001 ? (fromOrigin / ringDist) / vec2(aspect, 1.0) * ring * 0.035 : vec2(0.0);
+  vec3 src = ring > 0.001 ? texture2D(inputBuffer, uv - bend).rgb : inputColor.rgb;
 
   // Gold buzz (story clue): wherever the picture is bright gold, the colour plates slip a pixel
   // or two and the light flickers, stepping like a badly registered print. Violet never does.
@@ -65,16 +78,31 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   c = mix(c, c * c * (3.0 - 2.0 * c), contrast);
   lum = dot(c, vec3(0.299, 0.587, 0.114));
 
+  // The truth (after the twist): gold is shown for what it always was. Wherever the picture is
+  // gold it turns tarnished and is eaten by ink dots, while violet stays clean and luminous.
+  float tarnish = truth * goldness(src);
+  if (tarnish > 0.001) {
+    c = mix(c, vec3(lum) * vec3(1.0, 0.72, 0.3), tarnish * 0.55);
+    lum = dot(c, vec3(0.299, 0.587, 0.114));
+  }
+
   // Halftone: ink dots on a 45-degree screen, only where the picture is in shadow.
   float ds = max(2.0, dotSize * px);
   const float a = 0.7853982;
   vec2 rp = mat2(cos(a), -sin(a), sin(a), cos(a)) * (frag / ds);
   vec2 cell = fract(rp) - 0.5;
-  float shade = 1.0 - smoothstep(0.16, 0.56, lum);
+  // behind the flip's shock ring the whole picture is briefly swallowed by dots: a halftone wipe
+  float wipe = flip > 0.0 && flip < 1.0 ? smoothstep(0.34, 0.0, ringRadius - ringDist) * step(ringDist, ringRadius) * (1.0 - flip) : 0.0;
+  float shade = max(max(1.0 - smoothstep(0.16, 0.56, lum), tarnish * 0.7), wipe);
   float radius = sqrt(shade) * 0.6;
   float aa = 1.0 / ds;
   float dotMask = (1.0 - smoothstep(radius - aa, radius + aa, length(cell))) * step(0.001, shade);
-  c = mix(c, c * inkTint * 1.25, dotMask * halftoneStrength);
+  c = mix(c, c * inkTint * 1.25, dotMask * max(halftoneStrength, wipe));
+
+  // the ring itself burns in the new light, and the very first frames print as a negative
+  c += flipColor * ring * 1.6;
+  float negative = flip > 0.0 ? 1.0 - smoothstep(0.0, 0.09, flip) : 0.0;
+  c = mix(c, 1.0 - c, negative);
 
   // Printed paper: fine grain plus slow blotches, and a little of the paper colour in the lights.
   float grain = hash(floor(frag / max(1.0, 2.0 * px))) - 0.5;
@@ -122,6 +150,10 @@ const LOOK = {
  * Palette-driven uniforms (contrast, tear, paperColor) follow the live palette automatically.
  */
 export class ComicEffect extends Effect {
+  private flipTime = -1;
+  private flipDuration = 1.1;
+  private lastMode = 'gold';
+
   constructor() {
     super('ComicEffect', fragmentShader, {
       blendFunction: BlendFunction.NORMAL,
@@ -139,8 +171,31 @@ export class ComicEffect extends Effect {
         ['gutterColor', new THREE.Uniform(new THREE.Color('#fbf1dc'))],
         ['buzz', new THREE.Uniform(1)],
         ['time', new THREE.Uniform(0)],
+        ['truth', new THREE.Uniform(0)],
+        ['flip', new THREE.Uniform(0)],
+        ['flipOrigin', new THREE.Uniform(new THREE.Vector2(0.86, 0.88))],
+        ['flipColor', new THREE.Uniform(new THREE.Color('#b79bff'))],
       ]),
     });
+    // The palette flip is THE moment of the game: whenever the world changes palette (with a
+    // real transition, not an instant set) the screen takes the hit too.
+    events.on('palette:set', ({ mode, durationSec }) => {
+      const changed = mode !== this.lastMode;
+      this.lastMode = mode;
+      if (!changed || (durationSec ?? 1.5) <= 0.05) return;
+      this.playFlip(Math.min(1.4, Math.max(0.8, (durationSec ?? 1.5) * 0.75)), mode === 'violet' ? '#b79bff' : '#ffd98a');
+    });
+  }
+
+  /**
+   * Play the twist flip: a negative flash, then a shock ring and halftone wipe racing across the
+   * screen from `origin` (uv, default: the Narrator's caption box in the top-right).
+   */
+  playFlip(durationSec = 1.1, color: THREE.ColorRepresentation = '#b79bff', origin?: THREE.Vector2) {
+    this.flipDuration = Math.max(0.3, durationSec);
+    this.flipTime = 0;
+    this.uniform<THREE.Color>('flipColor').value.set(color);
+    if (origin) this.uniform<THREE.Vector2>('flipOrigin').value.copy(origin);
   }
 
   uniform<T = any>(name: string): THREE.Uniform<T> {
@@ -153,6 +208,13 @@ export class ComicEffect extends Effect {
     const time = this.uniform<number>('time');
     time.value = (time.value + deltaTime) % 1000;
     this.uniform<number>('buzz').value = p.buzz;
+    this.uniform<number>('truth').value = p.tear; // 0 on the gold page, 1 once the truth is out
+    if (this.flipTime >= 0) {
+      this.flipTime += deltaTime;
+      const k = this.flipTime / this.flipDuration;
+      this.uniform<number>('flip').value = k >= 1 ? 0 : Math.max(0.0001, k);
+      if (k >= 1) this.flipTime = -1;
+    }
     this.uniform<number>('contrast').value = p.contrast;
     this.uniform<number>('tear').value = p.tear;
     this.uniform<THREE.Color>('paperColor').value.copy(p.paper);
