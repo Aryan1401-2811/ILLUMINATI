@@ -102,46 +102,44 @@ export class Sequence {
   // ── Timing ───────────────────────────────────────────────────────
 
   /**
-   * Wait for `seconds` real time. Respects skip if enabled.
-   * Uses requestAnimationFrame internally so it pauses with the game.
+   * Wait for `seconds` of unscaled game time (cutscene timing ignores slow-mo and hit-stop,
+   * but stops while the game is paused). Respects skip if enabled.
+   * Driven by game frames — not requestAnimationFrame or the wall clock — so it pauses with
+   * the game, never runs ahead of it, and works under game.advance() in scripted tests.
    */
   async wait(seconds: number): Promise<void> {
     if (this._aborted) return;
     this.skipRequested = false;
-    const start = performance.now();
-    const ms = seconds * 1000;
-    return new Promise<void>((resolve) => {
-      const check = () => {
-        if (this._aborted || this.skipRequested) {
-          this.skipRequested = false;
-          resolve();
-          return;
-        }
-        if (performance.now() - start >= ms) {
-          resolve();
-          return;
-        }
-        requestAnimationFrame(check);
-      };
-      requestAnimationFrame(check);
+    let left = seconds;
+    return this.onFrames((realDt) => {
+      if (this.skipRequested) {
+        this.skipRequested = false;
+        return true;
+      }
+      if (!time.paused) left -= realDt;
+      return left <= 0;
     });
   }
 
   /**
-   * Wait until a predicate returns true (checked every frame).
+   * Wait until a predicate returns true (checked every game frame).
    * Also resolves if the sequence is aborted.
    */
   async until(predicate: () => boolean): Promise<void> {
     if (this._aborted) return;
+    return this.onFrames(() => predicate());
+  }
+
+  /** Resolve once `done` returns true on a game frame. Aborts if our scene is unloaded. */
+  private onFrames(done: (realDt: number) => boolean): Promise<void> {
     return new Promise<void>((resolve) => {
-      const check = () => {
-        if (this._aborted || predicate()) {
+      const off = this.scene.game.onFrame((_dt, realDt) => {
+        if (this.scene.game.current !== this.scene) this._aborted = true;
+        if (this._aborted || done(realDt)) {
+          off();
           resolve();
-          return;
         }
-        requestAnimationFrame(check);
-      };
-      requestAnimationFrame(check);
+      });
     });
   }
 
