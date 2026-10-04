@@ -1,0 +1,180 @@
+import * as THREE from 'three';
+import { Entity } from '@/core/Entity';
+import { events, type GameEvents } from '@/core/events';
+import type { GameScene } from '@/core/GameScene';
+import { livePalette } from '@/render/palette';
+import { AmbientParticles } from './AmbientParticles';
+import { Player } from '@/player/Player';
+import { ComicWords } from './ComicWords';
+import { DodgeAfterimage } from './DodgeAfterimage';
+import { EnergyAura } from './EnergyAura';
+import { GoldBuzz } from './GoldBuzz';
+import { Wisp } from './Wisp';
+import { ImpactFx, elementColor } from './ImpactFx';
+import { AFTERIMAGE_FX, FX_COLORS, WORDS } from './config';
+import { fxDt } from './fxTime';
+
+/**
+ * One per scene. Listens to gameplay events and turns them into visual effects, so no other
+ * module ever has to call the VFX code: emit `combat:hit`, `enemy:killed`, `fx:onomatopoeia`…
+ * and the page reacts. It is added to every scene automatically by `vfx/install.ts`.
+ *
+ *   VfxDirector.of(scene)?.impact.splat(...)   // direct access for other effects in src/vfx
+ */
+export class VfxDirector extends Entity {
+  readonly words = new ComicWords();
+  readonly impact = new ImpactFx();
+  readonly ambient = new AmbientParticles();
+  private buzz = new GoldBuzz();
+  /** Seconds until each queued dodge ghost is due. */
+  private ghostQueue: number[] = [];
+  private paletteMode = livePalette.current.tear > 0.5 ? 'violet' : 'gold';
+  private lastShatterAt = new THREE.Vector3(1e9, 0, 0);
+  private lastShatterAge = 99;
+
+  static of(scene: GameScene): VfxDirector | undefined {
+    return scene.getFirst(VfxDirector);
+  }
+
+  onAdded() {
+    this.object.add(this.ambient.group, this.impact.group, this.words.group);
+    this.own(events.on('combat:hit', (e) => this.onHit(e)));
+    this.own(events.on('fx:onomatopoeia', (e) => this.onWord(e)));
+    this.own(
+      events.on('enemy:killed', ({ position, wisp }) => {
+        this.impact.death(position, FX_COLORS.violetSoft);
+        if (wisp) this.scene.add(new Wisp(position, this.impact));
+      }),
+    );
+    this.own(events.on('player:dodge', () => (this.ghostQueue = Array.from({ length: AFTERIMAGE_FX.ghosts }, (_, i) => i * AFTERIMAGE_FX.gap))));
+    this.scene.add(new EnergyAura());
+    this.own(events.on('palette:set', (e) => this.onPaletteFlip(e)));
+    this.own(events.on('armour:shellBroken', ({ position }) => this.shatter(position, true)));
+    this.own(events.on('armour:coreBroken', ({ position }) => this.impact.shatter(position, FX_COLORS.violetSoft)));
+  }
+
+  update(dt: number) {
+    const step = fxDt(dt);
+    this.lastShatterAge += step;
+    this.impact.update(step);
+    this.words.update(step);
+    // `tear` is 0 on the gold page and 1 on the violet one, and blends during the flip
+    this.ambient.update(step, this.scene.cameraRig.focus, livePalette.current.tear);
+    this.buzz.update(dt, this.scene, this.impact);
+    this.updateGhosts(dt);
+  }
+
+  /**
+   * The world changes palette (the twist): the page itself is hit. A hard shake and a gust of
+   * torn paper sell the moment in the world; the screen-space flash lives in ComicEffect.
+   */
+  private onPaletteFlip({ mode, durationSec }: GameEvents['palette:set']) {
+    if (mode === this.paletteMode || (durationSec ?? 1.5) <= 0.05) {
+      this.paletteMode = mode;
+      return;
+    }
+    this.paletteMode = mode;
+    events.emit('fx:shake', { strength: 0.55 });
+    const focus = this.scene.cameraRig.focus;
+    const color = mode === 'violet' ? FX_COLORS.violetSoft : FX_COLORS.goldHot;
+    for (let i = 0; i < 46; i++) {
+      this.impact.scraps.spawn((p) => {
+        const a = Math.random() * Math.PI * 2;
+        const d = 2 + Math.random() * 13;
+        p.pos.set(focus.x + Math.cos(a) * d, 0.2 + Math.random() * 2, focus.z + Math.sin(a) * d * 0.8);
+        // blown away from the top-right, where the Narrator's box is
+        p.vel.set(-4 - Math.random() * 7, 2 + Math.random() * 5, 3 + Math.random() * 5);
+        p.gravity = 3;
+        p.drag = 0.7;
+        p.life = 1.4 + Math.random() * 1.4;
+        p.size0 = p.size1 = 0.22 + Math.random() * 0.4;
+        p.aspect = 0.6 + Math.random() * 0.8;
+        p.rot = Math.random() * 6;
+        p.spin = (Math.random() - 0.5) * 9;
+        p.tiltSpin = (Math.random() - 0.5) * 10;
+        p.color.set(i % 3 === 0 ? color : FX_COLORS.paper);
+        p.fadeFrom = 0.6;
+      });
+    }
+  }
+
+  /** Dodge afterimages: a few frozen copies of the hero left behind along the dash. */
+  private updateGhosts(dt: number) {
+    if (!this.ghostQueue.length || dt <= 0) return;
+    this.ghostQueue = this.ghostQueue.map((t) => t - dt);
+    while (this.ghostQueue.length && this.ghostQueue[0] <= 0) {
+      this.ghostQueue.shift();
+      const player = this.scene.getFirst(Player);
+      if (!player?.model) continue;
+      const color = player.element === 'violet' ? FX_COLORS.violet : FX_COLORS.gold;
+      this.scene.add(new DodgeAfterimage(player.model.root, color));
+    }
+  }
+
+  onRemoved() {
+    this.impact.dispose();
+    this.words.dispose();
+    this.ambient.dispose();
+  }
+
+  private onHit({ hit, result, position, targetTeam }: GameEvents['combat:hit']) {
+    const energy = hit.kind === 'energy';
+    const color = energy ? elementColor(hit.element) : hit.element === 'violet' ? FX_COLORS.violetSoft : FX_COLORS.goldHot;
+    switch (result) {
+      case 'immune':
+        return;
+      case 'deflected':
+        this.impact.ping(position, FX_COLORS.steel);
+        this.words.popStyle(WORDS.deflected, position);
+        return;
+      case 'blocked':
+        this.impact.ping(position, FX_COLORS.steel);
+        this.words.popStyle(WORDS.blocked, position);
+        return;
+      case 'shellHit':
+        this.impact.hit(position, hit.from, FX_COLORS.steel, false);
+        this.words.popStyle(WORDS.shellHit, position);
+        return;
+      case 'shellBroken':
+        this.impact.hit(position, hit.from, FX_COLORS.steel, true);
+        this.shatter(position, false);
+        this.words.popStyle(WORDS.shellBroken, position);
+        return;
+      case 'coreHit':
+        this.impact.hit(position, hit.from, color, hit.heavy);
+        this.words.popStyle(WORDS.coreHit, position);
+        return;
+      case 'killed':
+        this.impact.hit(position, hit.from, color, true);
+        if (targetTeam !== 'player') this.words.popStyle(WORDS.ko, position);
+        return;
+      case 'damaged':
+        if (targetTeam === 'player') {
+          this.impact.hit(position, hit.from, FX_COLORS.danger, false);
+          this.words.popStyle(WORDS.ouch, position);
+          return;
+        }
+        this.impact.hit(position, hit.from, color, hit.heavy);
+        if (hit.heavy) this.words.popStyle(WORDS.heavy, position);
+        else if (energy) this.words.popStyle(hit.element === 'violet' ? WORDS.energyViolet : WORDS.energy, position);
+        else this.words.popStyle(WORDS.light, position);
+    }
+  }
+
+  /** Any module can print its own sound effect: events.emit('fx:onomatopoeia', { text, position }). */
+  private onWord({ text, position, color, scale }: GameEvents['fx:onomatopoeia']) {
+    const fill = color ?? WORDS.light.fill;
+    const fill2 = color ? `#${new THREE.Color(color).multiplyScalar(0.6).getHexString()}` : WORDS.light.fill2;
+    const s = scale ?? 1;
+    this.words.pop(text, position, fill, fill2, 1.1 * s, 0.7 + 0.2 * s, s >= 1.5);
+  }
+
+  /** Shell shards. `combat:hit` and `armour:shellBroken` both report a break — only burst once. */
+  private shatter(position: THREE.Vector3, withWord: boolean) {
+    if (this.lastShatterAge < 0.2 && this.lastShatterAt.distanceToSquared(position) < 9) return;
+    this.lastShatterAge = 0;
+    this.lastShatterAt.copy(position);
+    this.impact.shatter(position, FX_COLORS.steel);
+    if (withWord) this.words.popStyle(WORDS.shellBroken, position);
+  }
+}

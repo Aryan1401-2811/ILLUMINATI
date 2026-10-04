@@ -7,6 +7,11 @@ Every third-party asset, library and AI tool used in **False Dawn**. Add a row *
 | Asset | Author | Source | License | Used for |
 |---|---|---|---|---|
 | RobotExpressive | Tomás Laulhé (Quaternius), modified by Don McCurdy | [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/models/gltf/RobotExpressive) | CC0 1.0 | Placeholder hero |
+| KayKit Adventurers 1.0 — Knight | Kay Lousberg | [KayKit-Character-Pack-Adventures-1.0](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) | CC0 1.0 | Hero (`models/hero/hero.glb`), unused meshes/clips removed |
+| KayKit Adventurers 1.0 — Barbarian | Kay Lousberg | [KayKit-Character-Pack-Adventures-1.0](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) | CC0 1.0 | The Warden (`models/bosses/warden.glb`), texture recoloured |
+| KayKit Adventurers 1.0 — Mage | Kay Lousberg | [KayKit-Character-Pack-Adventures-1.0](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) | CC0 1.0 | The Narrator (`models/bosses/narrator.glb`), texture recoloured |
+| KayKit Skeletons 1.0 — Skeleton Minion | Kay Lousberg | [KayKit-Character-Pack-Skeletons-1.0](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0) | CC0 1.0 | Grunt Shade (`models/enemies/grunt.glb`), texture recoloured |
+| KayKit Skeletons 1.0 — Skeleton Warrior | Kay Lousberg | [KayKit-Character-Pack-Skeletons-1.0](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0) | CC0 1.0 | Brute Shade (`models/enemies/brute.glb`), texture recoloured |
 
 ## Audio
 
