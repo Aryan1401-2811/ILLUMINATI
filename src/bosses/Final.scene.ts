@@ -2,19 +2,22 @@ import * as THREE from 'three';
 import { GameScene, defineScene } from '@/core/GameScene';
 import { events } from '@/core/events';
 import { Player } from '@/player/Player';
-import { buildPlaygroundArena } from '@/world/Arena';
+import { buildFinalArena } from '@/world/zones';
+import { loadGLTF } from '@/core/assets';
+import { NARRATOR_BOSS } from './config';
 import { Sequence } from '@/sequences/Sequence';
 import { NarratorBoss } from './Narrator';
 import { souls } from './souls';
 
 class FinalScene extends GameScene {
   async load() {
-    // Swap for buildFinalArena when Visuals person merges it
-    buildPlaygroundArena(this);
-    
+    const layout = buildFinalArena(this);
+    await loadGLTF(NARRATOR_BOSS.model);
+    souls.reset(); // charges from a previous attempt don't carry over
+
     const player = this.add(new Player());
     await player.ready;
-    player.position.set(0, 0, 8);
+    player.position.copy(layout.playerSpawn);
     player.loadFromRun(); // Loads violet abilities granted in the twist
     
     // Ensure we're in violet palette
@@ -22,7 +25,7 @@ class FinalScene extends GameScene {
     this.cameraRig.follow(player.object);
     
     const narrator = this.add(new NarratorBoss());
-    narrator.position.set(0, 0, -4);
+    narrator.position.copy(layout.enemySpawns[0] ?? new THREE.Vector3(0, 0, -4));
     
     // Boss intro (un-awaited)
     void (async () => {
@@ -68,7 +71,7 @@ class FinalScene extends GameScene {
     
     // Player death handling
     this.listen(events.on('player:died', () => {
-      setTimeout(() => player.revive(new THREE.Vector3(0, 0, 8)), 2000);
+      setTimeout(() => player.revive(layout.playerSpawn.clone()), 2000);
     }));
   }
 }
