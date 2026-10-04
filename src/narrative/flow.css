@@ -1,0 +1,216 @@
+/* ── Page turn between scenes ─────────────────────────────────────────────── */
+.page-turn {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+.page-turn-sheet {
+  position: absolute;
+  inset: -5% -10%;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(26, 16, 19, 0.08) 0 2px, transparent 3px) 0 0 / 14px 14px,
+    #fbf1dc;
+  border-left: 10px solid #1a1013;
+  box-shadow: -30px 0 60px rgba(0, 0, 0, 0.45);
+  transform: translateX(110%) skewX(-8deg);
+}
+.page-turn-ink {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(26, 16, 19, 0.35), transparent 18%);
+}
+.page-turn.covering .page-turn-sheet {
+  transition: transform 0.5s cubic-bezier(0.7, 0, 0.3, 1);
+  transform: translateX(0) skewX(0);
+}
+.page-turn.revealing .page-turn-sheet {
+  transition: transform 0.55s cubic-bezier(0.7, 0, 0.3, 1);
+  transform: translateX(-120%) skewX(8deg);
+}
+
+/* Gameplay UI is hidden on the title and ending screens */
+body[data-scene='game'] .hud,
+body[data-scene='game'] .narr-layer,
+body[data-scene='ending'] .hud {
+  display: none;
+}
+
+/* ── Shared comic screen chrome (title, ending, credits) ─────────────────── */
+.comic-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  pointer-events: auto;
+  font-family: var(--font-body);
+  color: #1a1013;
+}
+.comic-logo {
+  font-family: 'Bangers', var(--font-body);
+  font-size: clamp(64px, 12vw, 150px);
+  letter-spacing: 0.04em;
+  color: #e8463a;
+  -webkit-text-stroke: 4px #1a1013;
+  text-shadow: 8px 8px 0 #1a1013;
+  transform: rotate(-4deg);
+  line-height: 0.9;
+  animation: logo-bob 3.2s ease-in-out infinite;
+}
+@keyframes logo-bob {
+  50% { transform: rotate(-3deg) translateY(-6px) scale(1.02); }
+}
+.comic-tagline {
+  background: #ffd23a;
+  border: 4px solid #1a1013;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 18px;
+  box-shadow: 5px 5px 0 #1a1013;
+  transform: rotate(1.5deg);
+  max-width: min(560px, 90vw);
+  text-align: center;
+}
+.comic-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.comic-btn {
+  font-family: 'Bangers', var(--font-body);
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  min-width: 240px;
+  padding: 8px 24px;
+  background: #fffaf0;
+  color: #1a1013;
+  border: 4px solid #1a1013;
+  box-shadow: 6px 6px 0 #1a1013;
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s, background 0.15s;
+}
+.comic-btn:hover,
+.comic-btn:focus-visible {
+  background: #ffd23a;
+  transform: translate(-2px, -2px) rotate(-1deg);
+  box-shadow: 8px 8px 0 #1a1013;
+  outline: none;
+}
+.comic-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 2px 2px 0 #1a1013;
+}
+.comic-panel {
+  background: #fffaf0;
+  border: 5px solid #1a1013;
+  box-shadow: 8px 8px 0 #1a1013;
+  padding: 20px 26px;
+  max-width: min(720px, 92vw);
+  max-height: 70vh;
+  overflow: auto;
+}
+.comic-panel h2 {
+  font-family: 'Bangers', var(--font-body);
+  font-size: 34px;
+  margin: 0 0 10px;
+  letter-spacing: 0.05em;
+}
+.comic-panel table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.comic-panel td { padding: 3px 10px 3px 0; vertical-align: top; }
+.comic-hint {
+  font-size: 14px;
+  opacity: 0.75;
+  font-weight: 700;
+}
+
+/* Exit marker label in zones */
+.zone-exit-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  font-family: 'Bangers', var(--font-body);
+  font-size: 26px;
+  color: #ffd23a;
+  -webkit-text-stroke: 2px #1a1013;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Ending: the hero's last caption + credits roll */
+.ending-caption {
+  font-family: 'Bangers', var(--font-body);
+  font-size: clamp(28px, 4vw, 48px);
+  letter-spacing: 0.03em;
+  background: #f3eeff;
+  border: 6px solid #1a1013;
+  box-shadow: 10px 10px 0 #1a1013;
+  padding: 22px 30px;
+  max-width: min(900px, 90vw);
+  text-align: center;
+  min-height: 1.2em;
+}
+.credits-roll {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent);
+}
+.credits-roll-inner {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: min(700px, 90vw);
+  transform: translateX(-50%);
+  color: #fffaf0;
+  text-align: center;
+  font-size: 18px;
+  text-shadow: 2px 2px 0 #1a1013;
+}
+.credits-roll-inner h3 {
+  font-family: 'Bangers', var(--font-body);
+  font-size: 34px;
+  color: #c9b2ff;
+  margin: 28px 0 8px;
+  letter-spacing: 0.05em;
+}
+.credits-roll-inner p { margin: 4px 0; }
+
+.comic-screen .hidden {
+  display: none;
+}
+
+/* Ending: dim the world under the credits; the menu waits in a corner until they finish */
+.ending-screen { transition: background 1.2s; }
+.ending-screen.rolling { background: rgba(10, 6, 30, 0.6); }
+.ending-screen .ending-menu {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  margin: 0;
+  transform: scale(0.7);
+  transform-origin: bottom right;
+  opacity: 0.55;
+  transition: all 0.6s;
+}
+.ending-screen .ending-menu .comic-logo { display: none; }
+.ending-screen.finished .ending-menu {
+  right: 50%;
+  bottom: 50%;
+  transform: translate(50%, 50%);
+  opacity: 1;
+}
+.ending-screen.finished .ending-menu .comic-logo { display: block; }
+.ending-screen.finished .credits-roll { display: none; }
+
+/* Title: keep the small print readable over the street */
+.title-screen .comic-hint {
+  background: rgba(255, 250, 240, 0.85);
+  border: 2px solid #1a1013;
+  padding: 2px 10px;
+}
