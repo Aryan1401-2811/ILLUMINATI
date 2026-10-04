@@ -23,7 +23,7 @@ class NarratorFigure extends Entity {
     body.position.y = 1.75;
     addOutline(body, 3);
     
-    const head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1), headMat);
+    const head = new THREE.Mesh(new THREE.OctahedronGeometry(0.8, 0), headMat);
     head.position.y = 3.8;
     addOutline(head, 4);
     

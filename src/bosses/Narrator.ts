@@ -40,7 +40,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
     body.position.y = 1.5;
     addOutline(body, 3);
     
-    this.head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1), headMat);
+    this.head = new THREE.Mesh(new THREE.OctahedronGeometry(0.8, 0), headMat);
     this.head.position.y = 3.6;
     addOutline(this.head, 4);
     
@@ -112,6 +112,8 @@ export class NarratorBoss extends Entity implements Hurtbox {
     if (this.head) {
       if (this.phase === 1) {
         this.head.position.y = 3.6 + Math.sin(this.t * 4) * 0.15;
+        this.head.rotation.y = this.t * 0.5;
+        this.head.rotation.z = Math.sin(this.t * 2) * 0.1;
       } else {
         // Ferocious erratic movement for phase 2
         this.head.position.y = 3.8 + Math.sin(this.t * 15) * 0.4;
@@ -157,24 +159,31 @@ export class NarratorBoss extends Entity implements Hurtbox {
     this.object.rotation.y = cur + diff * dt * 5;
     
     if (this.phase === 1) {
-      this.velocity.lerp(new THREE.Vector3(), dt);
+      // Orbit slowly at a distance
+      const desiredDist = 12;
+      const moveFwd = fwd.clone().multiplyScalar(dist - desiredDist);
+      const strafe = new THREE.Vector3(-fwd.z, 0, fwd.x).multiplyScalar(5);
+      const targetVel = moveFwd.add(strafe);
+      this.velocity.lerp(targetVel, dt * 1.5);
+      
       if (this.attackTimer <= 0) {
         this.attackTimer = 2.5 + Math.random();
         this.fireGoldFan(fwd);
       }
     } else {
-      if (dist < 5) {
-        this.velocity.lerp(fwd.clone().multiplyScalar(-4), dt * 3);
-        if (this.attackTimer <= 0) {
-          this.attackTimer = 2;
-          this.fireGoldBurst();
-        }
-      } else {
-        this.velocity.lerp(new THREE.Vector3(), dt * 2);
-        if (this.attackTimer <= 0) {
-          this.attackTimer = 1.5;
-          this.fireGoldFan(fwd);
-        }
+      // Phase 2: Aggressive fast orbit
+      const desiredDist = 6;
+      const moveFwd = fwd.clone().multiplyScalar(dist - desiredDist);
+      const strafe = new THREE.Vector3(fwd.z, 0, -fwd.x).multiplyScalar(10); 
+      const targetVel = moveFwd.add(strafe).multiplyScalar(1.5);
+      this.velocity.lerp(targetVel, dt * 3);
+      
+      if (dist < 6 && this.attackTimer <= 0) {
+        this.attackTimer = 2;
+        this.fireGoldBurst();
+      } else if (this.attackTimer <= 0) {
+        this.attackTimer = 1.5;
+        this.fireGoldFan(fwd);
       }
     }
     
