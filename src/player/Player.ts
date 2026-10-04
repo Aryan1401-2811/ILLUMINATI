@@ -9,6 +9,7 @@ import { isPositiveResult } from '@/combat/types';
 import { SlashArc } from '@/vfx/SlashArc';
 import type { Ability } from './abilities/Ability';
 import { createAbility } from './abilities/registry';
+import { runState } from '@/core/runState';
 
 /** Hero model + clip names. Swap these when the final hero model arrives. */
 export const HERO_MODEL = {
@@ -150,6 +151,23 @@ export class Player extends Entity implements Hurtbox {
     this.energy -= n;
     events.emit('player:energy', { energy: this.energy, max: this.maxEnergy });
     return true;
+  }
+
+  /** Restore hp/energy/loadout/element saved by the previous scene. */
+  loadFromRun() {
+    this.hp = runState.hp;
+    this.energy = runState.energy;
+    this.element = runState.element;
+    this.setLoadout(runState.loadout);
+    this.emitStats();
+  }
+
+  /** Save hp/energy/loadout/element so the next scene continues from here. */
+  saveToRun() {
+    runState.hp = this.hp;
+    runState.energy = this.energy;
+    runState.element = this.element;
+    runState.loadout = this.abilities.map((a) => a?.id ?? null);
   }
 
   /** Full reset (respawn / checkpoint). */
