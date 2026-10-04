@@ -6,3 +6,9 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# Personal AI briefs (each teammate has their own; never commit)
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+.claude/
