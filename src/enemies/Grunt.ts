@@ -1,12 +1,9 @@
-import * as THREE from 'three';
 import { events } from '@/core/events';
-import { CharacterModel } from '@/render/CharacterModel';
-import { toonMaterial, addOutline } from '@/render/toon';
-import { Enemy } from './Enemy';
+import { Enemy, type EnemyAIState } from './Enemy';
 import { Telegraph } from './fx/Telegraph';
 import {
   ENEMY_MODELS, ENEMY_ANIMS,
-  GRUNT_BASE, GRUNT_ZONES, ZONE_TINTS,
+  GRUNT_BASE, GRUNT_ZONES,
   type GruntStats,
 } from './config';
 
@@ -53,37 +50,23 @@ export class Grunt extends Enemy {
 
   override onAdded(): void {
     super.onAdded();
-    this.loadModel();
+    void this.loadModel();
   }
 
   private async loadModel(): Promise<void> {
     const tint = this.variant === 'gold' ? '#ffd27a' : undefined;
-    
-    this.model = await CharacterModel.load(ENEMY_MODELS.grunt.path, {
+    await this.attachModel(ENEMY_MODELS.grunt.path, {
       height: this.stats.height * this.stats.scaleMul,
       tint,
     });
-    
-    // In case the entity was destroyed before the model loaded
-    if (this.destroyed) return;
-
-    this.object.add(this.model.root);
-    
-    // Add corrupted buzzing for gold variant
-    if (this.variant === 'gold') {
-       // A harsh golden buzz sound could be added here, or particles
-    }
   }
 
   // ── AI overrides ───────────────────────────────────────────────────────
 
-  protected override onStateWindup(dt: number): void {
-    this.velocity.multiplyScalar(0.8);
-    this.facePlayer();
-
-    // Play windup anim
-    if (this.stateTime < 0.05) {
+  protected override onEnterState(state: EnemyAIState): void {
+    if (state === 'windup') {
       this.attackHitDone = false;
+      this.facePlayer();
       // Show telegraph: cone in front
       this.scene.add(new Telegraph({
         shape: 'cone',
@@ -97,24 +80,28 @@ export class Grunt extends Enemy {
       if (this.model?.has(ENEMY_ANIMS.windup)) {
         this.model.play(ENEMY_ANIMS.windup, { loop: false, fade: 0.08 });
       }
+    } else if (state === 'attack') {
+      if (this.model?.has(ENEMY_ANIMS.attack)) {
+        this.model.play(ENEMY_ANIMS.attack, { loop: false, restart: true, fade: 0.05 });
+      }
     }
+  }
 
+  protected override onStateWindup(_dt: number): void {
+    // Facing stays locked to the cone drawn on entry, so the swipe lands where it was shown.
+    this.velocity.multiplyScalar(0.8);
     if (this.stateTime >= this.cfg.windupSec) {
       this.setAIState('attack');
     }
   }
 
-  protected override onStateAttack(dt: number): void {
+  protected override onStateAttack(_dt: number): void {
     // Lunge forward slightly
     this.velocity.copy(this.forward).multiplyScalar(this.cfg.moveSpeed * 0.8);
 
     if (!this.attackHitDone && this.stateTime >= this.cfg.activeSec * 0.5) {
       this.attackHitDone = true;
       this.doSwipe();
-    }
-
-    if (this.model?.has(ENEMY_ANIMS.attack)) {
-      this.model.play(ENEMY_ANIMS.attack, { loop: false, restart: true, fade: 0.05 });
     }
 
     if (this.stateTime >= this.cfg.activeSec) {

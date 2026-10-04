@@ -3,7 +3,6 @@ import { Entity } from '@/core/Entity';
 import { events } from '@/core/events';
 import type { Hit, HitResult, Hurtbox } from '@/combat/types';
 import { CharacterModel } from '@/render/CharacterModel';
-import { toonMaterial, addOutline } from '@/render/toon';
 import { ENEMY_ANIMS } from './config';
 
 /**
@@ -38,7 +37,7 @@ export interface EnemyConfig {
   radius: number;
   height: number;
   mass: number;
-  /** Probability per frame to hesitate instead of attacking. */
+  /** Chance per 60 fps frame to hesitate instead of attacking (scaled by dt, so frame-rate independent). */
   hesitateProbability?: number;
   /** Probability to flinch (back away) after being hit. */
   flinchProbability?: number;
@@ -51,6 +50,26 @@ export interface EnemyConfig {
 const _v = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 
+/** How long the corpse fades (and the ink splats with it) before destroy(). */
+const DEATH_SEC = 1.5;
+
+/** One shared glow texture for every enemy (a canvas per enemy was never freed). */
+let glowTexture: THREE.Texture | null = null;
+function getGlowTexture(): THREE.Texture {
+  if (glowTexture) return glowTexture;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(155,107,255,0.6)');
+  grad.addColorStop(0.5, 'rgba(155,107,255,0.2)');
+  grad.addColorStop(1, 'rgba(155,107,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  glowTexture = new THREE.CanvasTexture(c);
+  return glowTexture;
+}
+
 /**
  * Base class for all regular enemies. Handles:
  *  - HP, Hurtbox registration, knockback, stagger, flash, death
@@ -61,7 +80,7 @@ const _fwd = new THREE.Vector3();
  * Subclasses must:
  *  - Call super() with an EnemyConfig
  *  - Set up `this.model` (call `await this.loadModel()` or build procedurally)
- *  - Override `onStateWindup()` to play the telegraph
+ *  - Override `onEnterState('windup')` to play the telegraph (runs once per windup)
  *  - Override `onStateAttack()` to deal damage
  *  - Optionally override `onStateChase()` for custom movement
  */
@@ -86,13 +105,16 @@ export abstract class Enemy extends Entity implements Hurtbox {
   protected playerRef: Hurtbox | null = null;
   protected invulnLeft = 0;
 
+  /** Random length of the current timed state (hesitate/circle/flinch), rolled once on entry. */
+  protected stateDur = 0;
+  /** Strafe direction while circling, rolled once on entry (+1 / -1). */
+  protected circleDir = 1;
+
   // Death animation
   private deadFor = -1;
-  private deathFadeGeo: THREE.BufferGeometry | null = null;
-  private deathFadeMat: THREE.Material | null = null;
+  private deathSplats: THREE.Mesh[] = [];
 
   // Shade clue: soft violet glow
-  private glowMat: THREE.MeshBasicMaterial;
   private glowSprite: THREE.Sprite;
 
   constructor(cfg: EnemyConfig) {
@@ -105,10 +127,8 @@ export abstract class Enemy extends Entity implements Hurtbox {
     this.mass = cfg.mass;
 
     // Soft violet glow sprite — calm, not threatening (Shade clue)
-    this.glowMat = new THREE.MeshBasicMaterial(); // not actually used for sprite
-    const glowTex = this.makeGlowTexture();
     const spriteMat = new THREE.SpriteMaterial({
-      map: glowTex,
+      map: getGlowTexture(),
       color: '#9b6bff',
       blending: THREE.AdditiveBlending,
       transparent: true,
@@ -131,6 +151,21 @@ export abstract class Enemy extends Entity implements Hurtbox {
 
   onAdded(): void {
     this.own(this.scene.combat.register(this));
+  }
+
+  /**
+   * Load a shared .glb and attach it. Returns null (and frees the copy) if the
+   * enemy was removed while the file was still loading.
+   */
+  protected async attachModel(path: string, opts: Parameters<typeof CharacterModel.load>[1]): Promise<CharacterModel | null> {
+    const model = await CharacterModel.load(path, opts);
+    if (this.destroyed) {
+      disposeOwnMaterials(model.root);
+      return null;
+    }
+    this.model = model;
+    this.object.add(model.root);
+    return model;
   }
 
   // ── Hurtbox ────────────────────────────────────────────────────────────
@@ -165,16 +200,18 @@ export abstract class Enemy extends Entity implements Hurtbox {
       ? hit.heavy
       : true;
 
-    if (shouldStagger) {
-      // Shade clue: sometimes flinch away instead of just staggering
-      if (Math.random() < (this.cfg.flinchProbability ?? 0)) {
-        this.setAIState('flinch');
-      } else {
-        this.setAIState('hurt');
-      }
-    }
+    if (shouldStagger) this.stagger();
 
     return 'damaged';
+  }
+
+  /** Interrupt whatever we're doing. Shade clue: sometimes flinch away instead. */
+  protected stagger(): void {
+    if (Math.random() < (this.cfg.flinchProbability ?? 0)) {
+      this.setAIState('flinch');
+    } else {
+      this.setAIState('hurt');
+    }
   }
 
   /**
@@ -208,7 +245,8 @@ export abstract class Enemy extends Entity implements Hurtbox {
   }
 
   private spawnDeathBurst(): void {
-    // Small ink splatters
+    // Small ink splatters. They live in the world (not on this.object, which shrinks as it
+    // fades), are faded in update() on game time and freed in onRemoved().
     for (let i = 0; i < 8; i++) {
       const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.3;
       const geo = new THREE.CircleGeometry(0.1 + Math.random() * 0.15, 6);
@@ -226,20 +264,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
         this.position.z + Math.sin(angle) * (0.3 + Math.random() * 0.5),
       );
       this.scene.three.add(splat);
-      // Fade and clean up after a bit
-      const startTime = Date.now();
-      const cleanup = () => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        if (elapsed > 1.5) {
-          mat.dispose();
-          geo.dispose();
-          splat.removeFromParent();
-          return;
-        }
-        mat.opacity = Math.max(0, 1 - elapsed / 1.5);
-        requestAnimationFrame(cleanup);
-      };
-      requestAnimationFrame(cleanup);
+      this.deathSplats.push(splat);
     }
   }
 
@@ -266,7 +291,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
       const fadeK = Math.min(1, this.deadFor / 1.2);
       this.object.scale.setScalar(1 - fadeK * 0.5);
       if (this.model) {
-        // Fade materials
+        // Fade materials (each instance has its own toon materials)
         this.model.root.traverse((o) => {
           const mesh = o as THREE.Mesh;
           if (mesh.material && !o.userData.isOutline) {
@@ -278,7 +303,9 @@ export abstract class Enemy extends Entity implements Hurtbox {
           }
         });
       }
-      if (this.deadFor > 1.5) this.destroy();
+      const splatOpacity = Math.max(0, 1 - this.deadFor / DEATH_SEC);
+      for (const s of this.deathSplats) (s.material as THREE.MeshBasicMaterial).opacity = splatOpacity;
+      if (this.deadFor > DEATH_SEC) this.destroy();
       return;
     }
 
@@ -355,7 +382,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
 
     // Shade clue: sometimes hesitate instead of going straight to attack
     if (dist < this.cfg.attackRange * 1.8) {
-      if (Math.random() < (this.cfg.hesitateProbability ?? 0)) {
+      if (this.chance(this.cfg.hesitateProbability ?? 0, dt)) {
         this.setAIState('hesitate');
         return;
       }
@@ -368,6 +395,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
       } else {
         this.setAIState('windup');
       }
+      return;
     }
 
     // Lost the player
@@ -376,21 +404,21 @@ export abstract class Enemy extends Entity implements Hurtbox {
     }
   }
 
-  protected onStateCircle(dt: number): void {
+  protected onStateCircle(_dt: number): void {
     if (!this.playerRef) { this.setAIState('idle'); return; }
 
     this.facePlayer();
     this.model?.play(ENEMY_ANIMS.run, { timeScale: 0.7 });
 
-    // Strafe around the player
+    // Strafe around the player (direction picked once on entry)
     const dir = this.dirToPlayer();
-    const perpDir = (this.stateTime * 1000) % 2 < 1 ? 1 : -1;
-    const perp = new THREE.Vector3(-dir.z * perpDir, 0, dir.x * perpDir);
-    this.velocity.copy(perp).multiplyScalar(this.cfg.moveSpeed * 0.6);
+    _v.set(-dir.z * this.circleDir, 0, dir.x * this.circleDir);
+    this.velocity.copy(_v).multiplyScalar(this.cfg.moveSpeed * 0.6);
 
     // After circling briefly, decide to attack
-    if (this.stateTime > 0.6 + Math.random() * 0.8) {
+    if (this.stateTime > this.stateDur) {
       this.setAIState('windup');
+      return;
     }
 
     // Too far? Chase again
@@ -405,7 +433,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
     this.model?.play(ENEMY_ANIMS.idle);
     if (this.playerRef) this.facePlayer();
 
-    if (this.stateTime > 0.5 + Math.random() * 0.5) {
+    if (this.stateTime > this.stateDur) {
       // After hesitating, might back away or attack
       if (Math.random() < 0.4) {
         this.setAIState('flinch');
@@ -415,7 +443,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
     }
   }
 
-  /** Override this to show telegraph and lock facing. */
+  /** Override this to lock facing during the wind-up. Show the telegraph in onEnterState('windup'). */
   protected onStateWindup(_dt: number): void {
     this.velocity.multiplyScalar(0.85);
     if (this.stateTime >= this.cfg.windupSec) {
@@ -440,15 +468,12 @@ export abstract class Enemy extends Entity implements Hurtbox {
 
   protected onStateHurt(_dt: number): void {
     this.velocity.multiplyScalar(0.85);
-    if (this.model?.has(ENEMY_ANIMS.hurt)) {
-      this.model.play(ENEMY_ANIMS.hurt, { loop: false });
-    }
     if (this.stateTime >= 0.3) {
       this.setAIState('chase');
     }
   }
 
-  protected onStateFlinch(dt: number): void {
+  protected onStateFlinch(_dt: number): void {
     // Shade clue: back away from the player
     if (this.playerRef) {
       this.facePlayer();
@@ -456,7 +481,7 @@ export abstract class Enemy extends Entity implements Hurtbox {
       this.velocity.copy(dir).multiplyScalar(-this.cfg.moveSpeed * 0.6);
     }
     this.model?.play(ENEMY_ANIMS.run, { timeScale: -0.5 });
-    if (this.stateTime > 0.5 + Math.random() * 0.3) {
+    if (this.stateTime > this.stateDur) {
       this.setAIState('chase');
     }
   }
@@ -466,6 +491,39 @@ export abstract class Enemy extends Entity implements Hurtbox {
   protected setAIState(state: EnemyAIState): void {
     this.aiState = state;
     this.stateTime = 0;
+    // Random durations are rolled ONCE here. Re-rolling them every frame made the
+    // effective length depend on the frame rate (it collapsed toward the minimum).
+    switch (state) {
+      case 'circle':
+        this.stateDur = 0.6 + Math.random() * 0.8;
+        this.circleDir = Math.random() < 0.5 ? 1 : -1;
+        break;
+      case 'hesitate':
+        this.stateDur = 0.5 + Math.random() * 0.5;
+        break;
+      case 'flinch':
+        this.stateDur = 0.5 + Math.random() * 0.3;
+        break;
+      case 'hurt':
+        if (this.model?.has(ENEMY_ANIMS.hurt)) {
+          this.model.play(ENEMY_ANIMS.hurt, { loop: false, restart: true, fade: 0.05 });
+        }
+        break;
+    }
+    this.onEnterState(state);
+  }
+
+  /**
+   * Runs once each time a state is entered. Put one-shot work here (telegraphs,
+   * attack anims, resetting hit flags) — checking `stateTime < 0.05` misses it
+   * whenever the first frame of the state is longer than 50 ms.
+   */
+  protected onEnterState(_state: EnemyAIState): void {}
+
+  /** Per-frame chance tuned at 60 fps, scaled so it behaves the same at any frame rate. */
+  protected chance(perFrameAt60: number, dt: number): boolean {
+    if (perFrameAt60 <= 0) return false;
+    return Math.random() < 1 - Math.pow(1 - Math.min(1, perFrameAt60), dt * 60);
   }
 
   protected findPlayer(): Hurtbox | null {
@@ -500,21 +558,21 @@ export abstract class Enemy extends Entity implements Hurtbox {
     return this.distToPlayer() < 18;
   }
 
-  private makeGlowTexture(): THREE.Texture {
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    const g = c.getContext('2d')!;
-    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(155,107,255,0.6)');
-    grad.addColorStop(0.5, 'rgba(155,107,255,0.2)');
-    grad.addColorStop(1, 'rgba(155,107,255,0)');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, 64, 64);
-    return new THREE.CanvasTexture(c);
-  }
-
   onRemoved(): void {
+    for (const s of this.deathSplats) {
+      s.removeFromParent();
+      s.geometry.dispose();
+      (s.material as THREE.Material).dispose();
+    }
+    this.deathSplats.length = 0;
+
+    // The .glb's geometry is shared with every other copy of the model (asset cache),
+    // so only free the model's own materials. Everything else on this.object is ours.
+    const modelRoot = this.model?.root ?? null;
+    if (modelRoot) disposeOwnMaterials(modelRoot);
     this.object.traverse((o) => {
+      if (modelRoot && isInside(o, modelRoot)) return;
+      if (o.userData.isOutline) return; // outline materials are shared (render/toon cache)
       const mesh = o as THREE.Mesh;
       if (mesh.geometry) mesh.geometry.dispose();
       if (mesh.material) {
@@ -523,4 +581,19 @@ export abstract class Enemy extends Entity implements Hurtbox {
       }
     });
   }
+}
+
+/** Free the per-instance materials of a loaded model, skipping shared outline materials and geometry. */
+function disposeOwnMaterials(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    if (o.userData.isOutline) return;
+    const mat = (o as THREE.Mesh).material;
+    if (!mat) return;
+    for (const m of Array.isArray(mat) ? mat : [mat]) m.dispose();
+  });
+}
+
+function isInside(o: THREE.Object3D, root: THREE.Object3D): boolean {
+  for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === root) return true;
+  return false;
 }

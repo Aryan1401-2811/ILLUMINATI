@@ -1,15 +1,13 @@
 import * as THREE from 'three';
 import { events } from '@/core/events';
-import { CharacterModel } from '@/render/CharacterModel';
-import { toonMaterial, addOutline } from '@/render/toon';
 import { Shockwave } from '@/vfx/Shockwave';
-import { Enemy } from './Enemy';
+import { Enemy, type EnemyAIState } from './Enemy';
 import { Armour, type ArmourConfig } from './armour/Armour';
 import { Telegraph } from './fx/Telegraph';
 import type { Hit, HitResult } from '@/combat/types';
 import {
   ENEMY_ANIMS, ENEMY_MODELS,
-  BRUTE_BASE, BRUTE_ZONES, ZONE_TINTS,
+  BRUTE_BASE, BRUTE_ZONES,
   type BruteStats,
 } from './config';
 
@@ -79,26 +77,25 @@ export class Brute extends Enemy {
 
   private async loadModel(): Promise<void> {
     const tint = this.variant === 'gold' ? '#ffd27a' : undefined;
-    
-    this.model = await CharacterModel.load(ENEMY_MODELS.brute.path, {
+    const model = await this.attachModel(ENEMY_MODELS.brute.path, {
       height: this.stats.height * this.stats.scaleMul,
       tint,
     });
-    
-    // In case the entity was destroyed before the model loaded
-    if (this.destroyed) return;
-
-    this.object.add(this.model.root);
-    
-    // Play idle animation immediately upon load
-    this.model.play(ENEMY_ANIMS.spawn, { loop: false });
+    // Rise out of the ink
+    model?.play(ENEMY_ANIMS.spawn, { loop: false });
   }
 
   // ── Armour intercept ───────────────────────────────────────────────────
 
   protected override onHitIntercept(hit: Hit): HitResult | null {
     const at = this.position.clone().setY(this.position.y + this.height * 0.6);
-    return this.armour.handleHit(hit, at);
+    const result = this.armour.handleHit(hit, at);
+    // Brief: the Brute ignores light hits, but a heavy hit or a broken shell staggers it.
+    if (result === 'shellBroken' || (result === 'shellHit' && hit.heavy)) {
+      this.model?.flash('#ffffff', 0.12);
+      this.stagger();
+    }
+    return result;
   }
 
   // ── Update with armour ─────────────────────────────────────────────────
@@ -125,7 +122,7 @@ export class Brute extends Enemy {
     if (dist < this.cfg.attackRange * 1.2) {
       this.attackType = 'slam';
       this.setAIState('windup');
-    } else if (dist < this.stats.chargeRange && dist > this.cfg.attackRange * 1.5 && Math.random() < 0.3) {
+    } else if (dist < this.stats.chargeRange && dist > this.cfg.attackRange * 1.5 && this.chance(0.3, dt)) {
       this.attackType = 'charge';
       this.setAIState('windup');
     }
@@ -135,42 +132,42 @@ export class Brute extends Enemy {
     }
   }
 
-  protected override onStateWindup(dt: number): void {
-    this.velocity.multiplyScalar(0.8);
+  protected override onEnterState(state: EnemyAIState): void {
+    if (state !== 'windup') return;
+    this.attackHitDone = false;
+    this.facePlayer();
 
-    if (this.stateTime < 0.05) {
-      this.attackHitDone = false;
-
-      if (this.attackType === 'slam') {
-        // Ground slam telegraph: circle
-        this.facePlayer();
-        this.scene.add(new Telegraph({
-          shape: 'circle',
-          at: this.position.clone(),
-          radius: this.stats.slamRadius,
-          durationSec: this.cfg.windupSec,
-          color: '#aa55ff',
-        }));
-      } else {
-        // Charge telegraph: line
-        this.facePlayer();
-        this.chargeDir.copy(this.dirToPlayer());
-        this.scene.add(new Telegraph({
-          shape: 'line',
-          at: this.position.clone(),
-          length: this.stats.chargeRange,
-          width: this.stats.chargeWidth,
-          yaw: this.yaw,
-          durationSec: this.stats.chargeWindupSec,
-          color: '#8844ff',
-        }));
-      }
-
-      // Show windup pose
-      if (this.model?.has(ENEMY_ANIMS.windup)) {
-        this.model.play(ENEMY_ANIMS.windup, { loop: false, fade: 0.1 });
-      }
+    if (this.attackType === 'slam') {
+      // Ground slam telegraph: circle
+      this.scene.add(new Telegraph({
+        shape: 'circle',
+        at: this.position.clone(),
+        radius: this.stats.slamRadius,
+        durationSec: this.cfg.windupSec,
+        color: '#aa55ff',
+      }));
+    } else {
+      // Charge telegraph: line
+      this.chargeDir.copy(this.dirToPlayer());
+      this.scene.add(new Telegraph({
+        shape: 'line',
+        at: this.position.clone(),
+        length: this.stats.chargeRange,
+        width: this.stats.chargeWidth,
+        yaw: this.yaw,
+        durationSec: this.stats.chargeWindupSec,
+        color: '#8844ff',
+      }));
     }
+
+    // Show windup pose
+    if (this.model?.has(ENEMY_ANIMS.windup)) {
+      this.model.play(ENEMY_ANIMS.windup, { loop: false, fade: 0.1 });
+    }
+  }
+
+  protected override onStateWindup(_dt: number): void {
+    this.velocity.multiplyScalar(0.8);
 
     const windupDur = this.attackType === 'charge'
       ? this.stats.chargeWindupSec
