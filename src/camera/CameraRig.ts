@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CAMERA } from '@/core/config';
+import { settings } from '@/core/settings';
 
 const _ahead = new THREE.Vector3();
 
@@ -52,6 +53,7 @@ export class CameraRig {
 
   /** 0..1, stacks and decays. */
   addShake(amount: number) {
+    if (!settings.screenShake) return; // accessibility setting
     this.trauma = Math.min(1, this.trauma + amount);
   }
 
