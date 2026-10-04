@@ -25,6 +25,12 @@ export interface GameEvents {
   'player:attack': { comboStep: number; heavy: boolean; position: THREE.Vector3 };
   /** Player dodged. */
   'player:dodge': { position: THREE.Vector3 };
+  /** Guard raised/lowered or worn down. stability 0..1 (0 = guard broken). */
+  'player:guard': { active: boolean; stability: number };
+  /** A hit was blocked by the guard. perfect = raised just in time; broken = this hit broke it. */
+  'player:block': { position: THREE.Vector3; perfect: boolean; broken: boolean };
+  /** Player spent Light to heal. */
+  'player:heal': { amount: number; position: THREE.Vector3 };
   /** Player's ability loadout changed (e.g. at the twist). */
   'player:loadout': { abilityIds: (string | null)[] };
 

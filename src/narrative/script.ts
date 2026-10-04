@@ -133,7 +133,8 @@ export const SCRIPT = {
   tutorial: {
     move: 'WASD to move',
     attack: 'LMB to attack: the 3rd hit is a HEAVY finisher',
-    dodge: 'SPACE to dodge',
+    dodge: 'SPACE to dodge · hold RIGHT MOUSE to guard',
+    heal: 'F to heal: spend your Light to mend',
     energy: 'Q to fire Gold Bolt · E for Gold Burst',
     shell: 'Break the shell with a HEAVY hit, then hit the core with energy!',
     core: 'Core exposed! Hit it with energy (Q) before the shell grows back',

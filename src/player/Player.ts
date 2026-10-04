@@ -10,6 +10,8 @@ import { SlashArc } from '@/vfx/SlashArc';
 import type { Ability } from './abilities/Ability';
 import { createAbility } from './abilities/registry';
 import { runState } from '@/core/runState';
+import { GuardShield } from './GuardShield';
+import { HealGlow } from './HealGlow';
 
 /** Hero model + clip names. Swap these when the final hero model arrives. */
 interface HeroAnims {
@@ -23,6 +25,9 @@ interface HeroAnims {
   dodge: string;
   hurt?: string;
   cast: string;
+  /** Held while guarding (the Light raised as a shield). */
+  guard: string;
+  heal: string;
   death: string;
   victory: string;
 }
@@ -40,12 +45,14 @@ export const HERO_MODEL: { path: string; height: number; anims: HeroAnims } = {
     dodge: 'Dodge_Forward',
     hurt: 'Hit_A',
     cast: 'Spellcast_Shoot',
+    guard: 'Spellcasting',
+    heal: 'Spellcast_Raise',
     death: 'Death_A',
     victory: 'Cheer',
   },
 };
 
-export type PlayerState = 'move' | 'attack' | 'dodge' | 'cast' | 'channel' | 'hurt' | 'dead' | 'locked';
+export type PlayerState = 'move' | 'attack' | 'dodge' | 'cast' | 'channel' | 'guard' | 'hurt' | 'dead' | 'locked';
 
 const ABILITY_ACTIONS: Action[] = ['ability1', 'ability2', 'ability3'];
 const _v = new THREE.Vector3();
@@ -57,7 +64,8 @@ const _ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
  * The hero. Movement, 3-hit combo, dodge, energy, ability slots, health.
  *
  * Public API other systems use:
- *   player.setLoadout(['goldBolt', 'goldBurst', null])   // slots Q/RMB, E, R
+ *   player.setLoadout(['goldBolt', 'goldBurst', null])   // slots Q, E, R
+ *   (always available: LMB combo, RMB guard, SPACE dodge, F heal)
  *   player.setElement('violet')                           // melee + VFX colour after the twist
  *   player.stripPowers()                                  // twist: lose abilities + energy
  *   player.setLocked(true)                                // cutscene: no control, invulnerable
@@ -77,6 +85,10 @@ export class Player extends Entity implements Hurtbox {
   maxEnergy = PLAYER.maxEnergy;
   element: Element = 'gold';
   abilities: (Ability | null)[] = [null, null, null];
+  /** Guard stability 0..1. Blocks wear it down; at 0 the guard breaks. */
+  guardStability = 1;
+  /** Seconds until heal can be used again. */
+  healCooldownLeft = 0;
 
   state: PlayerState = 'move';
   stateTime = 0;
@@ -102,6 +114,10 @@ export class Player extends Entity implements Hurtbox {
   private walkResolve: (() => void) | null = null;
   private castTimeLeft = 0;
   private channelSlot = -1;
+  private guardFx = new GuardShield();
+  private guardRegenDelay = 0;
+  private healPending = 0;
+  private healRate = 0;
 
   constructor() {
     super();
@@ -110,6 +126,7 @@ export class Player extends Entity implements Hurtbox {
       this.object.add(m.root);
       m.play(HERO_MODEL.anims.idle);
     });
+    this.object.add(this.guardFx.object);
   }
 
   get alive(): boolean {
@@ -139,6 +156,12 @@ export class Player extends Entity implements Hurtbox {
 
   setElement(e: Element) {
     this.element = e;
+    this.guardFx.setElement(e);
+  }
+
+  /** Heal can be cast right now (enough Light, off cooldown, not at full health). */
+  get canHeal(): boolean {
+    return this.healCooldownLeft <= 0 && this.energy >= PLAYER.heal.cost && this.hp < this.maxHp;
   }
 
   stripPowers() {
@@ -149,6 +172,7 @@ export class Player extends Entity implements Hurtbox {
 
   setLocked(locked: boolean) {
     if (locked) {
+      if (this.state === 'guard') this.endGuard();
       this.setState('locked');
       this.velocity.set(0, 0, 0);
       this.model?.play(HERO_MODEL.anims.idle);
@@ -185,7 +209,7 @@ export class Player extends Entity implements Hurtbox {
   loadFromRun() {
     this.hp = runState.hp;
     this.energy = runState.energy;
-    this.element = runState.element;
+    this.setElement(runState.element);
     this.setLoadout(runState.loadout);
     this.emitStats();
   }
@@ -203,6 +227,9 @@ export class Player extends Entity implements Hurtbox {
     if (at) this.position.copy(at);
     this.hp = this.maxHp;
     this.invulnLeft = 1;
+    this.guardStability = 1;
+    this.healPending = 0;
+    this.guardFx.set(false, 1);
     this.setState('move');
     this.model?.play(HERO_MODEL.anims.idle, { restart: true });
     this.emitStats();
@@ -212,6 +239,10 @@ export class Player extends Entity implements Hurtbox {
 
   receiveHit(hit: Hit): HitResult {
     if (this.state === 'dead' || this.invulnerable) return 'immune';
+    if (this.state === 'guard') {
+      if (this.isFrontal(hit)) return this.block(hit);
+      this.endGuard(); // caught from behind: the guard drops and the hit lands
+    }
     if (this.state === 'channel') {
       const intercepted = this.abilities[this.channelSlot]?.interceptHit(this.abilityContext(), hit);
       if (intercepted) return intercepted;
@@ -251,6 +282,10 @@ export class Player extends Entity implements Hurtbox {
     this.invulnLeft = Math.max(0, this.invulnLeft - dt);
     this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
     this.comboWindowLeft = Math.max(0, this.comboWindowLeft - dt);
+    this.healCooldownLeft = Math.max(0, this.healCooldownLeft - dt);
+    this.updateHealing(dt);
+    this.updateGuardStability(dt);
+    this.guardFx.update(dt);
     if (this.comboWindowLeft <= 0 && this.state !== 'attack') this.comboStep = -1;
     for (const a of this.abilities) a?.update(dt);
     this.updateAim();
@@ -268,6 +303,9 @@ export class Player extends Entity implements Hurtbox {
         break;
       case 'channel':
         this.updateChannel(dt);
+        break;
+      case 'guard':
+        this.updateGuard(dt);
         break;
       case 'cast':
         this.velocity.multiplyScalar(Math.exp(-20 * dt));
@@ -331,6 +369,12 @@ export class Player extends Entity implements Hurtbox {
       this.startDodge();
       return true;
     }
+    // After a guard break it needs to recover a little before it can be raised again
+    if (input.held('guard') && this.guardStability > 0.2) {
+      this.startGuard();
+      return true;
+    }
+    if (input.pressed('heal') && this.tryHeal()) return true;
     if (input.pressed('attack')) {
       this.startAttack(this.comboWindowLeft > 0 ? (this.comboStep + 1) % 3 : 0);
       return true;
@@ -384,6 +428,117 @@ export class Player extends Entity implements Hurtbox {
     if (!ability) return;
     ability.cooldownLeft = ability.cooldown;
     ability.onRelease(this.abilityContext());
+  }
+
+  // ── Guard ──────────────────────────────────────────────────────
+
+  private startGuard() {
+    this.comboStep = -1;
+    this.setState('guard');
+    this.velocity.multiplyScalar(0.5);
+    this.model?.play(HERO_MODEL.anims.guard, { fade: 0.08, timeScale: 0.6 });
+    this.guardFx.set(true, this.guardStability);
+    events.emit('player:guard', { active: true, stability: this.guardStability });
+  }
+
+  private updateGuard(dt: number) {
+    this.updateMove(dt, PLAYER.guard.moveFactor);
+    this.yaw = Math.atan2(this.aimDir.x, this.aimDir.z);
+    // Dodge out of a guard; let go to drop it
+    if (input.pressed('dodge') && this.dodgeCooldown <= 0) {
+      this.endGuard();
+      this.startDodge();
+    } else if (!input.held('guard')) {
+      this.endGuard();
+    }
+  }
+
+  private endGuard(next: PlayerState = 'move') {
+    this.guardFx.set(false, this.guardStability);
+    if (this.state === 'guard') this.setState(next);
+    events.emit('player:guard', { active: false, stability: this.guardStability });
+  }
+
+  private isFrontal(hit: Hit): boolean {
+    _v.subVectors(hit.from, this.position).setY(0);
+    if (_v.lengthSq() < 1e-6) return true; // point-blank: the shield is in the way
+    return _v.normalize().dot(this.forward) >= Math.cos(THREE.MathUtils.degToRad(PLAYER.guard.arcDeg / 2));
+  }
+
+  /** A hit lands on the shield: no damage, but it wears the guard down and pushes a little. */
+  private block(hit: Hit): HitResult {
+    const g = PLAYER.guard;
+    const perfect = this.stateTime <= g.perfectWindow;
+    const wear = perfect ? 0 : hit.amount * g.wearPerDamage * (hit.heavy ? 2 : 1);
+    this.guardStability = Math.max(0, this.guardStability - wear);
+    this.guardRegenDelay = g.regenDelay;
+    const broken = this.guardStability <= 0;
+
+    _v.subVectors(this.position, hit.from).setY(0);
+    if (_v.lengthSq() < 1e-6) _v.copy(this.forward).negate();
+    this.knockback.copy(_v.normalize()).multiplyScalar(hit.knockback * (broken ? 1 : g.pushback));
+    this.guardFx.hit(perfect || broken ? 1.5 : 1);
+    if (perfect) this.gainEnergy(g.perfectEnergy);
+
+    const at = this.position.clone().addScaledVector(this.forward, 0.8).setY(1.2);
+    events.emit('player:block', { position: at, perfect, broken });
+    events.emit('fx:onomatopoeia', {
+      text: broken ? 'CRACK!' : perfect ? 'PERFECT!' : 'BLOCK!',
+      position: at,
+      color: broken ? '#ff6b40' : this.element === 'violet' ? '#c9b2ff' : '#ffd23a',
+      scale: perfect || broken ? 1.1 : 0.8,
+    });
+
+    if (broken) {
+      // Guard break: the shield shatters and the hero staggers, but this hit is still absorbed
+      this.endGuard('hurt');
+      this.stateTime = -(PLAYER.guard.breakStun - PLAYER.hurtStun); // longer stagger than a normal flinch
+      const hurt = HERO_MODEL.anims.hurt;
+      if (hurt) this.model?.play(hurt, { loop: false, restart: true, fade: 0.05 });
+      events.emit('fx:shake', { strength: 0.35 });
+    } else {
+      events.emit('player:guard', { active: true, stability: this.guardStability });
+    }
+    return 'blocked';
+  }
+
+  private updateGuardStability(dt: number) {
+    if (this.state === 'guard') return;
+    if (this.guardRegenDelay > 0) {
+      this.guardRegenDelay -= dt;
+      return;
+    }
+    if (this.guardStability < 1) {
+      this.guardStability = Math.min(1, this.guardStability + PLAYER.guard.regenPerSec * dt);
+      events.emit('player:guard', { active: false, stability: this.guardStability });
+    }
+  }
+
+  // ── Heal ───────────────────────────────────────────────────────
+
+  /** Spend Light to mend: a short cast, then health flows back over a moment. */
+  private tryHeal(): boolean {
+    if (!this.canHeal) return false;
+    const h = PLAYER.heal;
+    this.spendEnergy(h.cost);
+    this.healCooldownLeft = h.cooldown;
+    this.healPending += h.amount;
+    this.healRate = h.amount / h.overSec;
+    this.castTimeLeft = h.castTime;
+    this.setState('cast');
+    this.model?.play(HERO_MODEL.anims.heal, { loop: false, restart: true, timeScale: 2, fade: 0.05 });
+    const color = this.element === 'violet' ? '#b48cff' : '#ffd23a';
+    this.scene.add(new HealGlow(this.object, color, h.overSec + 0.3));
+    events.emit('player:heal', { amount: h.amount, position: this.position.clone() });
+    events.emit('fx:onomatopoeia', { text: 'MEND', position: this.position.clone().setY(2.2), color, scale: 0.9 });
+    return true;
+  }
+
+  private updateHealing(dt: number) {
+    if (this.healPending <= 0 || this.state === 'dead') return;
+    const n = Math.min(this.healPending, this.healRate * dt);
+    this.healPending -= n;
+    this.heal(n);
   }
 
   private startDodge() {
@@ -509,6 +664,10 @@ export class Player extends Entity implements Hurtbox {
   private setState(s: PlayerState) {
     this.state = s;
     this.stateTime = 0;
+  }
+
+  onRemoved() {
+    this.guardFx.dispose();
   }
 
   private emitStats() {

@@ -35,6 +35,26 @@ export const PLAYER = {
   hurtInvuln: 0.6,
   hurtStun: 0.25,
   dodge: { speed: 17, duration: 0.2, invuln: 0.24, cooldown: 0.4 },
+  /**
+   * Guard (hold right mouse): raise the Light as a shield. Blocks every hit from the front
+   * arc. Each block wears down stability; at zero the guard breaks and the hero staggers.
+   * Raising it just before a hit (perfect block) refunds energy.
+   */
+  guard: {
+    arcDeg: 160,
+    moveFactor: 0.35,
+    /** Stability lost per point of blocked damage (heavy hits count double). */
+    wearPerDamage: 0.012,
+    regenPerSec: 0.35,
+    regenDelay: 0.6,
+    breakStun: 0.7,
+    perfectWindow: 0.2,
+    perfectEnergy: 10,
+    /** Fraction of the hit's knockback that still pushes you while blocking. */
+    pushback: 0.45,
+  },
+  /** Heal (F): spend Light to mend. Heals over a short time; disabled at full health. */
+  heal: { cost: 35, amount: 30, overSec: 1.2, castTime: 0.35, cooldown: 4 },
   /** Time after a combo step during which the next press continues the combo. */
   comboWindow: 0.45,
   combo: [

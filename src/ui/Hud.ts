@@ -25,7 +25,7 @@ export class Hud {
         <div class="hud-bar energy"><div class="fill"></div><span>ENERGY</span></div>
       </div>
       <div class="hud-slots">
-        ${['Q / RMB', 'E', 'R'].map((k) => `<div class="hud-slot empty"><div class="glyph"></div><div class="cd"></div><div class="key">${k}</div></div>`).join('')}
+        ${['Q', 'E', 'R'].map((k) => `<div class="hud-slot empty"><div class="glyph"></div><div class="cd"></div><div class="key">${k}</div></div>`).join('')}
       </div>
       <div class="hud-prompt hidden"></div>
     `;

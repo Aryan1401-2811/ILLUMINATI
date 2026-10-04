@@ -1,4 +1,6 @@
 import { events } from '@/core/events';
+import { getGame } from '@/core/Game';
+import { Player } from '@/player/Player';
 import { SCRIPT, type Line } from './script';
 
 /**
@@ -51,6 +53,14 @@ events.on('player:hurt', () => {
 });
 
 events.on('enemy:killed', () => once('firstKill', () => say(SCRIPT.reactions.firstKill)));
+
+// Heal needs Light: suggest it the first time the hero is hurt and can afford it
+events.on('player:health', ({ hp, max }) => {
+  if (hp < max * 0.6) {
+    const player = getGame().current?.getFirst(Player);
+    if (player?.canHeal) prompt('heal');
+  }
+});
 
 events.on('player:attack', ({ heavy }) => {
   if (heavy) once('firstHeavy', () => say(SCRIPT.reactions.firstHeavy));
