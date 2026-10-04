@@ -5,7 +5,7 @@ import { Player } from '@/player/Player';
 import { buildPlaygroundArena } from '@/world/Arena';
 import { Sequence } from '@/sequences/Sequence';
 import { Warden } from './Warden';
-// import { runTwist } from '@/sequences/twist'; // Need to create this next in Step 4
+import { runTwist } from '@/sequences/twist';
 
 class WardenScene extends GameScene {
   async load() {
@@ -31,11 +31,10 @@ class WardenScene extends GameScene {
     await seq.resetCamera(0.8);
     seq.unlockPlayer();
     
-    // Defeat transition to Twist
     this.listen(events.on('boss:defeated', ({ bossId }) => {
       if (bossId === 'warden') {
         console.log("Warden defeated! Transitioning to twist sequence...");
-        // runTwist(this, player, warden);
+        runTwist(this, player, warden);
       }
     }));
     
