@@ -20,6 +20,8 @@ below is spelled the same on every character**.
 (for example a gold-corrupted Shade: `tint: '#ffd27a'`).
 **Root motion:** none. All clips play in place; move the entity yourself.
 **Outline:** `outlineWidth: 3` for normal characters, `4` for the Warden and the Narrator.
+**Cost:** each character's body is merged into one skinned mesh, so a character is only ~4 meshes.
+Please keep it that way if you re-export a model (the draw-call budget depends on it).
 
 ```ts
 const model = await CharacterModel.load('models/enemies/grunt.glb', { height: 1.35 });
