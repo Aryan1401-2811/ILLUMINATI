@@ -109,7 +109,7 @@ export class ZoneKit {
     z: number,
     w: number,
     h: number,
-    opts: { flat?: boolean; rotY?: number; lit?: boolean; transparent?: boolean; renderOrder?: number; brightness?: number } = {},
+    opts: { flat?: boolean; rotY?: number; lit?: boolean; transparent?: boolean; renderOrder?: number; brightness?: number; alphaTest?: number } = {},
   ): THREE.Mesh {
     const lit = opts.lit ?? false;
     const mat = lit
@@ -117,6 +117,7 @@ export class ZoneKit {
       : new THREE.MeshBasicMaterial({ map: texture, transparent: opts.transparent ?? false });
     if (!lit && opts.brightness !== undefined) (mat as THREE.MeshBasicMaterial).color.setScalar(opts.brightness);
     if (opts.transparent) mat.depthWrite = false;
+    if (opts.alphaTest) mat.alphaTest = opts.alphaTest; // hard cut-out (torn paper), still writes depth
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
     mesh.position.set(x, y, z);
     if (opts.flat) mesh.rotation.x = -Math.PI / 2;

@@ -21,17 +21,8 @@ export interface FloorRect {
  * A huge plain sheet of the same paper lies just underneath so the page never visibly ends.
  */
 export function pageFloor(kit: ZoneKit, rect: FloorRect, pxPerMetre: number, draw: (g: CanvasRenderingContext2D) => void, paper = '#fbf1dc'): THREE.Mesh {
-  const w = rect.maxX - rect.minX;
-  const d = rect.maxZ - rect.minZ;
-  const tex = kit.track(
-    canvasTexture(Math.round(w * pxPerMetre), Math.round(d * pxPerMetre), (g, cw, ch) => {
-      g.fillStyle = paper;
-      g.fillRect(0, 0, cw, ch);
-      g.setTransform(cw / w, 0, 0, ch / d, (-rect.minX * cw) / w, (-rect.minZ * ch) / d);
-      draw(g);
-    }),
-  );
-  const floor = kit.plane(tex, (rect.minX + rect.maxX) / 2, 0, (rect.minZ + rect.maxZ) / 2, w, d, { flat: true, lit: true });
+  const tex = worldCanvas(kit, rect, pxPerMetre, draw, paper);
+  const floor = kit.plane(tex, (rect.minX + rect.maxX) / 2, 0, (rect.minZ + rect.maxZ) / 2, rect.maxX - rect.minX, rect.maxZ - rect.minZ, { flat: true, lit: true });
   floor.name = 'page-floor';
 
   const sheetMat = kit.track(toonMaterial({ color: paper }));
@@ -42,6 +33,25 @@ export function pageFloor(kit: ZoneKit, rect: FloorRect, pxPerMetre: number, dra
   sheet.name = 'page-sheet';
   kit.root.add(sheet);
   return floor;
+}
+
+/**
+ * A canvas texture whose drawing coordinates are world metres over `rect`.
+ * Pass `paper = null` to start from a transparent canvas (for cut-out shapes like a torn page).
+ */
+export function worldCanvas(kit: ZoneKit, rect: FloorRect, pxPerMetre: number, draw: (g: CanvasRenderingContext2D) => void, paper: string | null): THREE.CanvasTexture {
+  const w = rect.maxX - rect.minX;
+  const d = rect.maxZ - rect.minZ;
+  return kit.track(
+    canvasTexture(Math.round(w * pxPerMetre), Math.round(d * pxPerMetre), (g, cw, ch) => {
+      if (paper) {
+        g.fillStyle = paper;
+        g.fillRect(0, 0, cw, ch);
+      }
+      g.setTransform(cw / w, 0, 0, ch / d, (-rect.minX * cw) / w, (-rect.minZ * ch) / d);
+      draw(g);
+    }),
+  );
 }
 
 /** Comic lettering on the floor, sized in metres. */
