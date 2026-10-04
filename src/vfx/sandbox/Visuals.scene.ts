@@ -4,7 +4,7 @@ import { events } from '@/core/events';
 import { HERO_MODEL, Player } from '@/player/Player';
 import { TrainingDummy } from '@/enemies/TrainingDummy';
 import { buildPlaygroundArena } from '@/world/Arena';
-import { buildWardenArena, buildZone1, buildZone2, buildZone3, type ZoneLayout } from '@/world/zones';
+import { buildFinalArena, buildWardenArena, buildZone1, buildZone2, buildZone3, type ZoneLayout } from '@/world/zones';
 import { ModelGallery } from './ModelGallery';
 import { Soul } from '../Soul';
 import '../install'; // effects for every scene, see install.ts
@@ -14,11 +14,12 @@ const ZONES: Record<string, (scene: GameScene) => ZoneLayout> = {
   zone2: buildZone2,
   zone3: buildZone3,
   warden: buildWardenArena,
+  final: buildFinalArena,
 };
 
 /**
  * Visuals sandbox.  ?scene=visuals&view=<name>&debug
- *   view=zone1 (default), zone2, zone3, warden   walk the arena as the hero; training dummies stand on the enemy spawns
+ *   view=zone1 (default), zone2, zone3, warden, final   walk the arena as the hero; training dummies stand on the enemy spawns
  *   view=models            every character model side by side.  [ and ] cycle their clips.
  * T flips the palette (gold lie ↔ violet truth).
  */
@@ -29,6 +30,11 @@ class VisualsScene extends GameScene {
     const view = new URLSearchParams(location.search).get('view') ?? 'zone1';
     if (ZONES[view]) await this.loadZone(ZONES[view]);
     else await this.loadGallery();
+    // the final arena only exists after the twist: show it in the violet truth
+    if (view === 'final') {
+      events.emit('palette:set', { mode: 'violet', durationSec: 0 });
+      this.player?.setElement('violet');
+    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'KeyT') return;
