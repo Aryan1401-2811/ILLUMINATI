@@ -1,0 +1,12 @@
+import { defineConfig } from 'vite';
+import { fileURLToPath, URL } from 'node:url';
+
+export default defineConfig({
+  // Relative base so the same build works on GitHub Pages and itch.io.
+  base: './',
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
+  server: { port: 5173, open: false },
+  build: { target: 'es2022', chunkSizeWarningLimit: 2500 },
+});
