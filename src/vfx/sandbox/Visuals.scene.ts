@@ -7,6 +7,7 @@ import { buildPlaygroundArena } from '@/world/Arena';
 import { buildFinalArena, buildWardenArena, buildZone1, buildZone2, buildZone3, type ZoneLayout } from '@/world/zones';
 import { ModelGallery } from './ModelGallery';
 import { Soul } from '../Soul';
+import { startCollapse } from '../Collapse';
 import '../install'; // effects for every scene, see install.ts
 
 const ZONES: Record<string, (scene: GameScene) => ZoneLayout> = {
@@ -21,7 +22,7 @@ const ZONES: Record<string, (scene: GameScene) => ZoneLayout> = {
  * Visuals sandbox.  ?scene=visuals&view=<name>&debug
  *   view=zone1 (default), zone2, zone3, warden, final   walk the arena as the hero; training dummies stand on the enemy spawns
  *   view=models            every character model side by side.  [ and ] cycle their clips.
- * T flips the palette (gold lie ↔ violet truth).
+ * T flips the palette (gold lie ↔ violet truth).  C starts the collapse.  X plays the whole twist.
  */
 class VisualsScene extends GameScene {
   player: Player | null = null;
@@ -36,11 +37,19 @@ class VisualsScene extends GameScene {
       this.player?.setElement('violet');
     }
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'KeyT') return;
+    const flip = () => {
       const next = this.game.palette.mode === 'gold' ? 'violet' : 'gold';
       events.emit('palette:set', { mode: next, durationSec: 1.2 });
       this.player?.setElement(next);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'KeyT') flip();
+      if (e.code === 'KeyC') startCollapse(this);
+      if (e.code === 'KeyX') {
+        // the whole twist beat, as the Bosses sequence will play it
+        if (this.game.palette.mode === 'gold') flip();
+        startCollapse(this);
+      }
     };
     window.addEventListener('keydown', onKey);
     this.listen(() => window.removeEventListener('keydown', onKey));
@@ -62,7 +71,7 @@ class VisualsScene extends GameScene {
     this.cameraRig.follow(player.object);
     layout.enemySpawns.slice(0, 5).forEach((p, i) => this.add(new TrainingDummy({ shoots: i === 4 })).position.copy(p));
     this.listen(events.on('player:died', () => setTimeout(() => player.revive(layout.playerSpawn), 1500)));
-    setTimeout(() => events.emit('ui:prompt', { text: 'VISUALS SANDBOX · WASD · LMB combo · SPACE dodge · Q bolt · E burst · T flip palette', durationSec: 8 }), 300);
+    setTimeout(() => events.emit('ui:prompt', { text: 'VISUALS SANDBOX · WASD · LMB combo · SPACE dodge · Q bolt · E burst · T flip · C collapse · X twist', durationSec: 8 }), 300);
   }
 
   private async loadGallery() {

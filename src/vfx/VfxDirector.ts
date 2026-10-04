@@ -28,6 +28,7 @@ export class VfxDirector extends Entity {
   private buzz = new GoldBuzz();
   /** Seconds until each queued dodge ghost is due. */
   private ghostQueue: number[] = [];
+  private paletteMode = livePalette.current.tear > 0.5 ? 'violet' : 'gold';
   private lastShatterAt = new THREE.Vector3(1e9, 0, 0);
   private lastShatterAge = 99;
 
@@ -47,6 +48,7 @@ export class VfxDirector extends Entity {
     );
     this.own(events.on('player:dodge', () => (this.ghostQueue = Array.from({ length: AFTERIMAGE_FX.ghosts }, (_, i) => i * AFTERIMAGE_FX.gap))));
     this.scene.add(new EnergyAura());
+    this.own(events.on('palette:set', (e) => this.onPaletteFlip(e)));
     this.own(events.on('armour:shellBroken', ({ position }) => this.shatter(position, true)));
     this.own(events.on('armour:coreBroken', ({ position }) => this.impact.shatter(position, FX_COLORS.violetSoft)));
   }
@@ -60,6 +62,40 @@ export class VfxDirector extends Entity {
     this.ambient.update(step, this.scene.cameraRig.focus, livePalette.current.tear);
     this.buzz.update(dt, this.scene, this.impact);
     this.updateGhosts(dt);
+  }
+
+  /**
+   * The world changes palette (the twist): the page itself is hit. A hard shake and a gust of
+   * torn paper sell the moment in the world; the screen-space flash lives in ComicEffect.
+   */
+  private onPaletteFlip({ mode, durationSec }: GameEvents['palette:set']) {
+    if (mode === this.paletteMode || (durationSec ?? 1.5) <= 0.05) {
+      this.paletteMode = mode;
+      return;
+    }
+    this.paletteMode = mode;
+    events.emit('fx:shake', { strength: 0.55 });
+    const focus = this.scene.cameraRig.focus;
+    const color = mode === 'violet' ? FX_COLORS.violetSoft : FX_COLORS.goldHot;
+    for (let i = 0; i < 46; i++) {
+      this.impact.scraps.spawn((p) => {
+        const a = Math.random() * Math.PI * 2;
+        const d = 2 + Math.random() * 13;
+        p.pos.set(focus.x + Math.cos(a) * d, 0.2 + Math.random() * 2, focus.z + Math.sin(a) * d * 0.8);
+        // blown away from the top-right, where the Narrator's box is
+        p.vel.set(-4 - Math.random() * 7, 2 + Math.random() * 5, 3 + Math.random() * 5);
+        p.gravity = 3;
+        p.drag = 0.7;
+        p.life = 1.4 + Math.random() * 1.4;
+        p.size0 = p.size1 = 0.22 + Math.random() * 0.4;
+        p.aspect = 0.6 + Math.random() * 0.8;
+        p.rot = Math.random() * 6;
+        p.spin = (Math.random() - 0.5) * 9;
+        p.tiltSpin = (Math.random() - 0.5) * 10;
+        p.color.set(i % 3 === 0 ? color : FX_COLORS.paper);
+        p.fadeFrom = 0.6;
+      });
+    }
   }
 
   /** Dodge afterimages: a few frozen copies of the hero left behind along the dash. */
