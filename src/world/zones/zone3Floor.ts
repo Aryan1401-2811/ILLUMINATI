@@ -7,7 +7,7 @@ export const Z3 = {
   panelRadius: 14.3,
   gateZ: -15.2,
   floor: { minX: -24, maxX: 24, minZ: -21, maxZ: 18 },
-  /** Straight crack segments [x0, z0, x1, z1]: painted on the floor AND lit with violet glow strips. */
+  /** Straight crack segments [x0, z0, x1, z1], painted on the floor with violet in the gap. */
   cracks: [
     [1.2, 3.4, 6.5, 8.2],
     [-3.0, 2.2, -9.4, 5.6],
@@ -122,7 +122,7 @@ export function drawZone3Floor(g: CanvasRenderingContext2D) {
 
   // ── cracks that leak the same violet ──
   for (const [x0, z0, x1, z1] of Z3.cracks) {
-    for (const [w, col] of [[0.34, C.ink], [0.13, C.violetPale]] as const) {
+    for (const [w, col] of [[0.34, C.ink], [0.13, '#b79bff']] as const) {
       g.strokeStyle = col;
       g.lineWidth = w;
       g.lineCap = 'round';

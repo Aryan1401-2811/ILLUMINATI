@@ -62,12 +62,6 @@ export function buildZone3(scene: GameScene): ZoneLayout {
   peeledCorner(kit, 14.5, -11.5, -2.3, 6);
   peeledCorner(kit, -16.5, 4.5, 1.9, 5);
 
-  // ── violet light leaking through the cracks (the true light, calm and steady) ──
-  for (const [x0, z0, x1, z1] of Z3.cracks) {
-    const len = Math.hypot(x1 - x0, z1 - z0);
-    kit.glowBox((x0 + x1) / 2, 0.01, (z0 + z1) / 2, len * 0.96, 0.008, 0.04, RUIN.violetSoft, 2.6, { rotY: -Math.atan2(z1 - z0, x1 - x0) });
-  }
-
   // ── wreckage, kept near the rim so the middle stays open for mixed fights ──
   rubble(kit, -8.6, -6.8, RUIN.stone, 1);
   rubble(kit, 9.4, 4.6, RUIN.stone, 2);
