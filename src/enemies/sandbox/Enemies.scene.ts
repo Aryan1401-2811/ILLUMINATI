@@ -153,14 +153,15 @@ class EnemiesSandbox extends GameScene {
     enc.position.set(0, 0, 0);
     enc.start();
 
-    this.listen(
-      events.on('encounter:cleared', ({ encounterId }) => {
-        if (encounterId === 'sandbox-test') {
-          this.encounterActive = false;
-          events.emit('narrator:say', { text: 'Well fought! The Shades have fallen.', durationSec: 3 });
-        }
-      }),
-    );
+    // One listener per run; it removes itself, so pressing N again doesn't stack them.
+    const off = events.on('encounter:cleared', ({ encounterId }) => {
+      if (encounterId !== 'sandbox-test') return;
+      off();
+      enc.destroy();
+      this.encounterActive = false;
+      events.emit('narrator:say', { text: 'Well fought! The Shades have fallen.', durationSec: 3 });
+    });
+    this.listen(off);
   }
 }
 

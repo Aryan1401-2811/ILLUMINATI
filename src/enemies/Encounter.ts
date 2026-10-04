@@ -53,7 +53,10 @@ export class Encounter extends Entity {
   private active = false;
   private aliveEnemies: Enemy[] = [];
   private allDead = false;
-  private waveSpawning = false;
+  /** Spawns of the current wave still waiting for room under MAX_ALIVE_ENEMIES. */
+  private queued: SpawnDef[] = [];
+  /** Ink splashes playing whose enemy hasn't appeared yet. */
+  private pendingSplashes = 0;
 
   constructor(cfg: EncounterConfig) {
     super();
@@ -65,6 +68,7 @@ export class Encounter extends Entity {
     this.active = true;
     this.waveIndex = -1;
     this.allDead = false;
+    this.queued = [];
     this.nextWave();
   }
 
@@ -86,11 +90,14 @@ export class Encounter extends Entity {
       return;
     }
 
-    // Clean up dead enemies
+    // Clean up dead enemies, then let queued spawns in as room frees up
     this.aliveEnemies = this.aliveEnemies.filter((e) => e.alive && !e.destroyed);
+    this.spawnQueued();
 
-    // Current wave cleared?
-    if (!this.waveSpawning && this.aliveEnemies.length === 0) {
+    // Current wave cleared? Counting splashes (not a wall-clock timer) means a wave can
+    // never be skipped while its enemies are still rising out of the ink — even if the
+    // game is paused, in hit-stop, or the tab is in the background.
+    if (this.pendingSplashes === 0 && this.queued.length === 0 && this.aliveEnemies.length === 0) {
       if (this.waveIndex >= this.cfg.waves.length - 1) {
         // All waves cleared
         this.allDead = true;
@@ -119,16 +126,15 @@ export class Encounter extends Entity {
   private spawnCurrentWave(): void {
     const wave = this.cfg.waves[this.waveIndex];
     if (!wave) return;
+    this.queued = [...wave.spawns];
+    this.spawnQueued();
+  }
 
-    this.waveSpawning = true;
+  /** Spawn as many queued enemies as MAX_ALIVE_ENEMIES allows; the rest wait their turn. */
+  private spawnQueued(): void {
     const zone = this.cfg.zone ?? 1;
-    let spawned = 0;
-
-    for (const spawnDef of wave.spawns) {
-      // Respect max alive limit
-      const currentAlive = this.aliveEnemies.filter((e) => e.alive && !e.destroyed).length;
-      if (currentAlive + spawned >= MAX_ALIVE_ENEMIES) break;
-
+    while (this.queued.length > 0 && this.aliveEnemies.length + this.pendingSplashes < MAX_ALIVE_ENEMIES) {
+      const spawnDef = this.queued.shift()!;
       const spawnPos = new THREE.Vector3(
         this.position.x + spawnDef.x,
         0,
@@ -136,19 +142,15 @@ export class Encounter extends Entity {
       );
 
       // Ink-splash spawn-in effect
+      this.pendingSplashes++;
       this.scene.add(new SpawnSplash(spawnPos, () => {
+        this.pendingSplashes--;
+        if (this.destroyed || !this.active) return; // encounter was torn down mid-splash
         const enemy = createEnemy(spawnDef.type, { zone });
         this.scene.add(enemy);
         enemy.position.copy(spawnPos);
         this.aliveEnemies.push(enemy);
       }));
-
-      spawned++;
     }
-
-    // Mark spawning as done after a brief delay for the splash effects
-    setTimeout(() => {
-      this.waveSpawning = false;
-    }, 700);
   }
 }
