@@ -43,7 +43,7 @@ class FinalScene extends GameScene {
         
         endSeq.slowMo(0.15, 4);
         endSeq.shake(1.5);
-        events.emit('fx:onomatopoeia', { text: 'NOOOOO', position: narrator.position.clone(), scale: 3 });
+        events.emit('fx:onomatopoeia', { text: 'THE PAGES... THEY TEAR... I AM... ENDLESS—!', position: narrator.position.clone(), scale: 3 });
         
         // Massive flash of light
         events.emit('palette:set', { mode: 'gold', durationSec: 0.1 });
@@ -54,7 +54,7 @@ class FinalScene extends GameScene {
         // Every remaining soul charge freed at once
         while(souls.charges < 5) souls.addCharge();
         
-        await endSeq.say("The end.", 3, 'hero');
+        await endSeq.say("The final period is mine.", 4, 'hero');
         
         narrator.destroy();
         await endSeq.wait(2);

@@ -94,7 +94,16 @@ export class NarratorBoss extends Entity implements Hurtbox {
     this.meshPivot.position.y += (0 - this.meshPivot.position.y) * 10 * dt;
     this.meshPivot.position.y += Math.sin(this.t * 2) * 0.1; // Bobbing
     if (this.head) {
-      this.head.position.y = 3.6 + Math.sin(this.t * 4) * 0.15;
+      if (this.phase === 1) {
+        this.head.position.y = 3.6 + Math.sin(this.t * 4) * 0.15;
+      } else {
+        // Ferocious erratic movement for phase 2
+        this.head.position.y = 3.8 + Math.sin(this.t * 15) * 0.4;
+        this.head.rotation.x = Math.sin(this.t * 10) * 0.3;
+        this.head.rotation.z = Math.cos(this.t * 12) * 0.3;
+        this.meshPivot.position.y += Math.sin(this.t * 20) * 0.15;
+        this.meshPivot.rotation.z = Math.sin(this.t * 8) * 0.1;
+      }
     }
     
     let targetObj: Hurtbox | null = null;
@@ -185,7 +194,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
   private enterPhase2() {
     this.phase = 2;
     events.emit('story:beat', { id: 'final:phase2' });
-    events.emit('narrator:say', { text: "No... You can't rewrite this!", speaker: 'narrator', durationSec: 3 });
+    events.emit('narrator:say', { text: "Blasphemy! I am the architect of this reality! You cannot unwrite your creator!", speaker: 'narrator', durationSec: 4 });
     events.emit('fx:shake', { strength: 0.8 });
     this.scene.cameraRig.addShake(0.8);
     

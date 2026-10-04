@@ -70,7 +70,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     
     // 1. Caption Box Swell
     await seq.camera(0, 5, 8, 2);
-    await seq.say("Yes… YES! The final soul!", 3, 'narrator');
+    await seq.say("At last... the final spark to burn this miserable draft to ash!", 3.5, 'narrator');
     
     // 2. Shatter
     seq.beat('twist:start');
@@ -84,22 +84,22 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     const narrator = scene.add(new NarratorFigure());
     narrator.position.set(0, 0, -2);
     await seq.camera(0, 8, 12, 1.5);
-    await seq.say("Did you think this story was yours?", 3, 'narrator');
-    await seq.say("Thank you for collecting them all for me.", 3, 'narrator');
+    await seq.say("Did you truly believe yourself the author of this tale? A puppet, dancing on strings woven of my ink.", 4.5, 'narrator');
+    await seq.say("Every soul you slaughtered, every drop of blood you shed... was merely ink for my quill.", 4, 'narrator');
     
     // 4. Powers stripped
     seq.beat('twist:powersStripped');
     player.stripPowers(); // Empties loadout, hero falls
     seq.palette('violet', 2);
     seq.shake(0.6);
-    await seq.say("You are nothing without my light.", 2.5, 'narrator');
+    await seq.say("I unmake you. Fade back into the blank parchment from whence you crawled.", 3.5, 'narrator');
     
     // 5. Collapse & Escape
     seq.beat('twist:collapse');
     // Call Visuals person's startCollapse if available
     import('@/vfx/Collapse').then(mod => mod.startCollapse(scene)).catch(() => {});
     
-    await seq.say("Die with this false world.", 2, 'narrator');
+    await seq.say("Let the void swallow this pathetic stage!", 2.5, 'narrator');
     narrator.destroy(); // Vanishes/ascends
     
     seq.prompt('Run to the Warden!', 6);
@@ -138,8 +138,8 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     await seq.camera(0, 3, 5, 1);
     await seq.walkPlayer(warden.position.clone().add(new THREE.Vector3(0, 0, 1.5)));
     
-    await seq.say("You… are not… his pawn.", 2.5, 'warden');
-    await seq.say("Take it. The true light.", 2.5, 'warden');
+    await seq.say("The ink... it does not bind you...", 2.5, 'warden');
+    await seq.say("Burn his pages... take the true light... and end this.", 3, 'warden');
     
     seq.beat('twist:trueLightGranted');
     seq.slowMo(0.2, 2);
