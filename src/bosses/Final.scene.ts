@@ -21,18 +21,19 @@ class FinalScene extends GameScene {
     events.emit('palette:set', { mode: 'violet', durationSec: 0 });
     this.cameraRig.follow(player.object);
     
-    // Boss intro
-    const seq = new Sequence(this);
-    await seq.lockPlayer();
-    
     const narrator = this.add(new NarratorBoss());
     narrator.position.set(0, 0, -4);
     
-    await seq.camera(0, 12, 16, 1.5);
-    await seq.say('THE NARRATOR', 2, 'narrator'); // Name card presentation
-    seq.beat('final:start');
-    await seq.resetCamera(0.8);
-    seq.unlockPlayer();
+    // Boss intro (un-awaited)
+    void (async () => {
+      const seq = new Sequence(this);
+      await seq.lockPlayer();
+      await seq.camera(0, 12, 16, 1.5);
+      await seq.say('THE NARRATOR', 2, 'narrator'); // Name card presentation
+      seq.beat('final:start');
+      await seq.resetCamera(0.8);
+      seq.unlockPlayer();
+    })();
     
     // Defeat cinematic
     this.listen(events.on('boss:defeated', async ({ bossId }) => {
@@ -56,6 +57,7 @@ class FinalScene extends GameScene {
         
         await endSeq.say("The final period is mine.", 4, 'hero');
         
+        endSeq.beat('final:defeated');
         narrator.destroy();
         await endSeq.wait(2);
         

@@ -21,18 +21,21 @@ class WardenScene extends GameScene {
     const warden = this.add(new Warden());
     warden.position.set(0, 0, -4);
     
-    // Cinematic Boss Intro
-    const seq = new Sequence(this);
-    await seq.lockPlayer();
-    await seq.camera(0, 10, 14, 1.2);
-    await seq.say('THE WARDEN', 1.5, 'narrator'); // Name card presentation
-    seq.beat('warden:start');
-    await seq.wait(0.5);
-    await seq.resetCamera(0.8);
-    seq.unlockPlayer();
+    // Cinematic Boss Intro (un-awaited so load() can finish and game can render)
+    void (async () => {
+      const seq = new Sequence(this);
+      await seq.lockPlayer();
+      await seq.camera(0, 10, 14, 1.2);
+      await seq.say('THE WARDEN', 1.5, 'narrator'); // Name card presentation
+      seq.beat('warden:start');
+      await seq.wait(0.5);
+      await seq.resetCamera(0.8);
+      seq.unlockPlayer();
+    })();
     
     this.listen(events.on('boss:defeated', ({ bossId }) => {
       if (bossId === 'warden') {
+        events.emit('story:beat', { id: 'warden:defeated' });
         console.log("Warden defeated! Transitioning to twist sequence...");
         runTwist(this, player, warden);
       }
