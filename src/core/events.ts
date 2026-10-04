@@ -67,6 +67,8 @@ export interface GameEvents {
   'fx:hitstop': { durationSec: number };
   /** Comic sound-effect word popping up in the world, e.g. THWACK! */
   'fx:onomatopoeia': { text: string; position: THREE.Vector3; color?: string; scale?: number };
+  /** A violet wisp finished drifting into the Narrator's caption box (top-right). UI may pulse the box. */
+  'fx:wispAbsorbed': { position: THREE.Vector3 };
 
   // ── Game flow (owner: Narrative) ──────────────────────────────
   'game:pause': { paused: boolean };

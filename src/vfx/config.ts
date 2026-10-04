@@ -66,3 +66,30 @@ export const IMPACT_FX = {
   splatLife: 3.2,
   maxSplats: 40,
 };
+
+/** The wisp: a Shade's light leaving its body and drifting to the Narrator's caption box. */
+export const WISP_FX = {
+  /** Where the caption box sits on screen, in NDC (-1..1). Top-right. */
+  targetNdc: { x: 0.74, y: 0.8 },
+  /** How far in front of the camera the wisp ends up (metres). */
+  targetDepth: 7.5,
+  riseTime: 0.75,
+  riseHeight: 1.5,
+  maxSpeed: 7.5,
+  accel: 9,
+  size: 0.5,
+  trailEvery: 0.035,
+  /** Give up and fade if it has not arrived by then. */
+  maxLife: 5,
+};
+
+/** Gold energy is subtly wrong: it jitters and flickers. Violet is perfectly calm. */
+export const BUZZ_FX = {
+  /** Jitter steps per second (stepped, like a mis-registered print plate). */
+  rate: 14,
+  /** Scale jitter on gold projectiles and auras (fraction). */
+  scale: 0.16,
+  sparksPerSec: 16,
+};
+
+export const AFTERIMAGE_FX = { ghosts: 3, gap: 0.055, life: 0.3, opacity: 0.4 };
