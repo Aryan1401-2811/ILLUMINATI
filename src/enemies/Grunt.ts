@@ -20,9 +20,10 @@ let gruntCount = 0;
 export class Grunt extends Enemy {
   private stats: GruntStats;
   private zone: 1 | 2 | 3;
+  private variant: 'normal' | 'gold';
   private attackHitDone = false;
 
-  constructor(zone: 1 | 2 | 3 = 1) {
+  constructor(zone: 1 | 2 | 3 = 1, variant: 'normal' | 'gold' = 'normal') {
     const stats = { ...GRUNT_BASE, ...GRUNT_ZONES[zone] };
     const id = `grunt${gruntCount++}`;
     super({
@@ -43,92 +44,35 @@ export class Grunt extends Enemy {
       mass: stats.mass,
       hesitateProbability: stats.hesitateProbability,
       flinchProbability: stats.flinchProbability,
+      variant,
     });
     this.stats = stats;
     this.zone = zone;
-
-    // Build placeholder model: robot tinted violet
-    this.buildPlaceholderModel();
+    this.variant = variant;
   }
 
-  private buildPlaceholderModel(): void {
-    const tint = ZONE_TINTS[this.zone];
-    const body = new THREE.Group();
+  override onAdded(): void {
+    super.onAdded();
+    this.loadModel();
+  }
 
-    // Simple humanoid shape with toon materials
-    const bodyMat = toonMaterial({ color: tint, emissive: tint, emissiveIntensity: 0.1 });
-    const darkMat = toonMaterial({ color: '#2a1555' });
+  private async loadModel(): Promise<void> {
+    const tint = this.variant === 'gold' ? '#ffd27a' : undefined;
+    
+    this.model = await CharacterModel.load(ENEMY_MODELS.grunt.path, {
+      height: this.stats.height * this.stats.scaleMul,
+      tint,
+    });
+    
+    // In case the entity was destroyed before the model loaded
+    if (this.destroyed) return;
 
-    // Torso
-    const torso = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.28 * this.stats.scaleMul, 0.4 * this.stats.scaleMul, 4, 8),
-      bodyMat,
-    );
-    torso.position.y = 0.9;
-    torso.castShadow = true;
-    addOutline(torso, 2);
-    body.add(torso);
-
-    // Head
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2 * this.stats.scaleMul, 12, 8),
-      bodyMat,
-    );
-    head.position.y = 1.35;
-    head.castShadow = true;
-    addOutline(head, 2);
-    body.add(head);
-
-    // Eyes (slightly unsettling — they look sad, not angry)
-    const eyeMat = toonMaterial({ color: '#ffffff' });
-    const pupilMat = toonMaterial({ color: '#3a1e77' });
-    for (const side of [-1, 1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), eyeMat);
-      eye.position.set(side * 0.08, 1.38, 0.16);
-      body.add(eye);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), pupilMat);
-      pupil.position.set(side * 0.08, 1.38, 0.19);
-      body.add(pupil);
-    }
-
-    // Arms (thin, slightly drooped — non-threatening)
-    for (const side of [-1, 1]) {
-      const arm = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.06 * this.stats.scaleMul, 0.5 * this.stats.scaleMul, 3, 6),
-        bodyMat,
-      );
-      arm.position.set(side * 0.38, 0.85, 0);
-      arm.rotation.z = side * 0.3; // slightly drooped
-      arm.castShadow = true;
-      addOutline(arm, 2);
-      body.add(arm);
-    }
-
-    // Legs
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.08 * this.stats.scaleMul, 0.4 * this.stats.scaleMul, 3, 6),
-        darkMat,
-      );
-      leg.position.set(side * 0.12, 0.3, 0);
-      leg.castShadow = true;
-      addOutline(leg, 2);
-      body.add(leg);
-    }
-
-    // Feet
-    for (const side of [-1, 1]) {
-      const foot = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.06, 0.18),
-        darkMat,
-      );
-      foot.position.set(side * 0.12, 0.03, 0.04);
-      body.add(foot);
-    }
-
-    this.model = CharacterModel.fromObject(body);
     this.object.add(this.model.root);
-    this.object.scale.setScalar(this.stats.scaleMul);
+    
+    // Add corrupted buzzing for gold variant
+    if (this.variant === 'gold') {
+       // A harsh golden buzz sound could be added here, or particles
+    }
   }
 
   // ── AI overrides ───────────────────────────────────────────────────────

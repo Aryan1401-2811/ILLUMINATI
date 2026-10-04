@@ -4,24 +4,28 @@
  * placeholder robot model; swap when the Visuals person delivers real models.
  */
 
-// ── Placeholder model (the robot tinted violet) ─────────────────────────────
+// ── Models & Animations ───────────────────────────────────────────────────
 export const ENEMY_MODELS = {
-  grunt: { path: 'models/robot_expressive.glb', height: 1.6 },
-  brute: { path: 'models/robot_expressive.glb', height: 2.4 },
+  grunt: { path: 'models/enemies/grunt.glb', height: 1.35 },
+  brute: { path: 'models/enemies/brute.glb', height: 2.6 },
 } as const;
 
 export const ENEMY_ANIMS = {
-  idle: 'Idle',
-  run: 'Running',
-  walk: 'Walking',
-  attack: 'Punch',
-  hurt: 'Jump',
-  death: 'Death',
-  block: 'Idle',      // placeholder until real anim exists
-  windup: 'ThumbsUp', // placeholder: obvious pose for telegraph
+  idle: 'Idle_Combat',
+  run: 'Running_A',
+  walk: 'Walking_A',
+  attack: 'Unarmed_Melee_Attack_Punch_A',
+  slam: '2H_Melee_Attack_Chop',
+  hurt: 'Hit_A',
+  death: 'Death_A',
+  block: 'Block',
+  windup: 'Block', // used as a generic ready pose
+  spawn: 'Spawn_Ground',
+  roar: 'Taunt',
 } as const;
 
-// ── Zone tint colours (calm violet shades — they're not evil) ───────────────
+// ── Zone tint colours ──────────────────────────────────────────────────────
+// Real models have textures baked in. We use tint ONLY for the 'gold' variant.
 export const ZONE_TINTS: Record<1 | 2 | 3, string> = {
   1: '#a88dff',   // soft lavender
   2: '#8f6bff',   // richer violet

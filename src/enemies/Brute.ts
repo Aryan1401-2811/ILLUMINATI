@@ -8,7 +8,7 @@ import { Armour, type ArmourConfig } from './armour/Armour';
 import { Telegraph } from './fx/Telegraph';
 import type { Hit, HitResult } from '@/combat/types';
 import {
-  ENEMY_ANIMS,
+  ENEMY_ANIMS, ENEMY_MODELS,
   BRUTE_BASE, BRUTE_ZONES, ZONE_TINTS,
   type BruteStats,
 } from './config';
@@ -26,12 +26,13 @@ let bruteCount = 0;
 export class Brute extends Enemy {
   private stats: BruteStats;
   private zone: 1 | 2 | 3;
+  private variant: 'normal' | 'gold';
   private armour: Armour;
   private attackType: 'slam' | 'charge' = 'slam';
   private attackHitDone = false;
   private chargeDir = new THREE.Vector3();
 
-  constructor(zone: 1 | 2 | 3 = 2) {
+  constructor(zone: 1 | 2 | 3 = 2, variant: 'normal' | 'gold' = 'normal') {
     const stats = { ...BRUTE_BASE, ...BRUTE_ZONES[zone] };
     const id = `brute${bruteCount++}`;
     super({
@@ -53,122 +54,44 @@ export class Brute extends Enemy {
       heavyStaggerOnly: true,
       hesitateProbability: 0.005,
       flinchProbability: 0.2,
+      variant,
     });
     this.stats = stats;
     this.zone = zone;
+    this.variant = variant;
 
     // Set up armour
     const armourCfg: ArmourConfig = {
       shellHp: stats.shellHp,
       coreHp: stats.coreHp,
       coreWindowSec: stats.coreWindowSec,
-      element: 'violet',
+      element: variant === 'gold' ? 'gold' : 'violet',
       size: stats.radius * 1.6,
     };
     this.armour = new Armour(id, armourCfg);
-
-    this.buildPlaceholderModel();
     this.object.add(this.armour.visual);
   }
 
-  private buildPlaceholderModel(): void {
-    const tint = ZONE_TINTS[this.zone];
-    const body = new THREE.Group();
+  override onAdded(): void {
+    super.onAdded();
+    this.loadModel();
+  }
 
-    const bodyMat = toonMaterial({ color: tint, emissive: tint, emissiveIntensity: 0.08 });
-    const darkMat = toonMaterial({ color: '#1a0e33' });
-    const accentMat = toonMaterial({ color: '#6b3fff', emissive: '#6b3fff', emissiveIntensity: 0.15 });
+  private async loadModel(): Promise<void> {
+    const tint = this.variant === 'gold' ? '#ffd27a' : undefined;
+    
+    this.model = await CharacterModel.load(ENEMY_MODELS.brute.path, {
+      height: this.stats.height * this.stats.scaleMul,
+      tint,
+    });
+    
+    // In case the entity was destroyed before the model loaded
+    if (this.destroyed) return;
 
-    // Massive torso
-    const torso = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.5 * this.stats.scaleMul, 0.6 * this.stats.scaleMul, 6, 12),
-      bodyMat,
-    );
-    torso.position.y = 1.2;
-    torso.castShadow = true;
-    addOutline(torso, 3);
-    body.add(torso);
-
-    // Broad shoulders
-    const shoulders = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2 * this.stats.scaleMul, 0.25 * this.stats.scaleMul, 0.4 * this.stats.scaleMul),
-      bodyMat,
-    );
-    shoulders.position.y = 1.6;
-    shoulders.castShadow = true;
-    addOutline(shoulders, 3);
-    body.add(shoulders);
-
-    // Head (smaller relative to body — looks imposing)
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22 * this.stats.scaleMul, 12, 8),
-      darkMat,
-    );
-    head.position.y = 1.95;
-    head.castShadow = true;
-    addOutline(head, 2);
-    body.add(head);
-
-    // Glowing eyes
-    for (const side of [-1, 1]) {
-      const eye = new THREE.Mesh(
-        new THREE.SphereGeometry(0.04, 6, 4),
-        new THREE.MeshBasicMaterial({
-          color: new THREE.Color('#9b6bff').multiplyScalar(4),
-        }),
-      );
-      eye.position.set(side * 0.1, 1.98, 0.18);
-      body.add(eye);
-    }
-
-    // Thick arms
-    for (const side of [-1, 1]) {
-      const upperArm = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.12 * this.stats.scaleMul, 0.5 * this.stats.scaleMul, 4, 8),
-        bodyMat,
-      );
-      upperArm.position.set(side * 0.65, 1.3, 0);
-      upperArm.rotation.z = side * 0.15;
-      upperArm.castShadow = true;
-      addOutline(upperArm, 3);
-      body.add(upperArm);
-
-      // Fists
-      const fist = new THREE.Mesh(
-        new THREE.SphereGeometry(0.14 * this.stats.scaleMul, 8, 6),
-        accentMat,
-      );
-      fist.position.set(side * 0.7, 0.75, 0);
-      fist.castShadow = true;
-      addOutline(fist, 2);
-      body.add(fist);
-    }
-
-    // Thick legs
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.13 * this.stats.scaleMul, 0.5 * this.stats.scaleMul, 4, 8),
-        darkMat,
-      );
-      leg.position.set(side * 0.22, 0.35, 0);
-      leg.castShadow = true;
-      addOutline(leg, 3);
-      body.add(leg);
-    }
-
-    // Big feet
-    for (const side of [-1, 1]) {
-      const foot = new THREE.Mesh(
-        new THREE.BoxGeometry(0.2, 0.1, 0.3),
-        darkMat,
-      );
-      foot.position.set(side * 0.22, 0.05, 0.06);
-      body.add(foot);
-    }
-
-    this.model = CharacterModel.fromObject(body);
     this.object.add(this.model.root);
-    this.object.scale.setScalar(this.stats.scaleMul);
+    
+    // Play idle animation immediately upon load
+    this.model.play(ENEMY_ANIMS.spawn, { loop: false });
   }
 
   // ── Armour intercept ───────────────────────────────────────────────────
@@ -300,8 +223,8 @@ export class Brute extends Enemy {
         scale: 1.3,
       });
 
-      if (this.model?.has(ENEMY_ANIMS.attack)) {
-        this.model.play(ENEMY_ANIMS.attack, { loop: false, restart: true, fade: 0.05 });
+      if (this.model?.has(ENEMY_ANIMS.slam)) {
+        this.model.play(ENEMY_ANIMS.slam, { loop: false, restart: true, fade: 0.05 });
       }
     }
 

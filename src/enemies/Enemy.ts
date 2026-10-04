@@ -44,6 +44,8 @@ export interface EnemyConfig {
   flinchProbability?: number;
   /** If true, only heavy hits and shell breaks stagger this enemy. */
   heavyStaggerOnly?: boolean;
+  /** Visual variant (used for the Narrator's summoned gold enemies) */
+  variant?: 'normal' | 'gold';
 }
 
 const _v = new THREE.Vector3();

@@ -6,6 +6,7 @@ export type EnemyType = 'grunt' | 'brute';
 
 export interface SpawnOptions {
   zone?: 1 | 2 | 3;
+  variant?: 'normal' | 'gold';
 }
 
 /**
@@ -17,12 +18,13 @@ export interface SpawnOptions {
  */
 export function createEnemy(type: EnemyType, opts: SpawnOptions = {}): Enemy {
   const zone = opts.zone ?? 1;
+  const variant = opts.variant ?? 'normal';
 
   switch (type) {
     case 'grunt':
-      return new Grunt(zone);
+      return new Grunt(zone, variant);
     case 'brute':
-      return new Brute(zone);
+      return new Brute(zone, variant);
     default:
       throw new Error(`Unknown enemy type: "${type}". Known: grunt, brute`);
   }
