@@ -115,6 +115,32 @@ const SFX = {
     for (const m of [60, 64, 67, 72]) s.tone(t, { type: 'triangle', freq: mtof(m), dur: 1.6, gain: 0.05, attack: 0.1, wet: 0.6 });
     s.noise(t, { dur: 0.8, gain: 0.15, attack: 0.2, filter: { type: 'bandpass', freq: 3000, q: 1 }, wet: 0.5 });
   },
+  /** A big comic page flipping over: an airy sweep with paper crackle on top. */
+  pageTurn(s: Synth, t: number) {
+    s.noise(t, { dur: 0.5, gain: 0.5, attack: 0.15, filter: { type: 'bandpass', freq: 600, to: 2400, q: 0.8 } });
+    for (let i = 0; i < 7; i++) {
+      s.noise(t + 0.08 + i * 0.045 + rand(0, 0.02), { dur: 0.025, gain: rand(0.15, 0.3), filter: { type: 'highpass', freq: rand(2500, 5000) } });
+    }
+    s.noise(t + 0.38, { dur: 0.12, gain: 0.35, filter: { type: 'lowpass', freq: 900 } });
+  },
+  /** Stepping into the exit light: a warm rising chime. */
+  zoneExit(s: Synth, t: number) {
+    [72, 76, 79, 84].forEach((m, i) => s.tone(t + i * 0.07, { type: 'triangle', freq: mtof(m), dur: 0.9, gain: 0.08, wet: 0.6 }));
+    s.noise(t, { dur: 0.8, gain: 0.12, attack: 0.3, filter: { type: 'bandpass', freq: 3000, to: 6000, q: 1 }, wet: 0.6 });
+  },
+  /** Zone 2's "gift" of golden energy: a swelling fanfare that ends on the sour note. */
+  energyGranted(s: Synth, t: number) {
+    s.noise(t, { dur: 1.2, gain: 0.25, attack: 0.9, release: 0.3, filter: { type: 'bandpass', freq: 400, to: 5000, q: 1 }, wet: 0.5 });
+    [60, 64, 67, 72, 76].forEach((m, i) => s.tone(t + 0.6 + i * 0.06, { type: 'triangle', freq: mtof(m), dur: 1.8, gain: 0.07, wet: 0.6 }));
+    for (const m of [48, 55, 60]) s.tone(t + 0.9, { type: 'sawtooth', freq: mtof(m), dur: 1.6, gain: 0.04, attack: 0.05, release: 1.2, filter: { type: 'lowpass', freq: 1800 }, wet: 0.5 });
+    s.tone(t + 1.5, { freq: mtof(80), detune: 30, dur: 1.2, gain: 0.04, wet: 0.7 });
+    s.tone(t + 0.9, { freq: 70, to: 35, dur: 0.6, gain: 0.6 });
+  },
+  /** An armour shell cracked: a short "now!" stinger telling the player the core is open. */
+  shellExposed(s: Synth, t: number) {
+    s.tone(t + 0.08, { type: 'square', freq: mtof(76), dur: 0.12, gain: 0.18, filter: { type: 'lowpass', freq: 3000 } });
+    s.tone(t + 0.18, { type: 'square', freq: mtof(83), dur: 0.3, gain: 0.21, filter: { type: 'lowpass', freq: 3500 }, wet: 0.4 });
+  },
   rumble(s: Synth, t: number) {
     s.noise(t, { dur: 3.5, gain: 0.7, attack: 0.6, filter: { type: 'lowpass', freq: 160 } });
     s.tone(t, { freq: 42, dur: 3.5, gain: 0.4, attack: 0.8 });

@@ -2,16 +2,22 @@ import { makeImpulse, makeNoise, Synth } from './synth';
 
 export type Bus = 'master' | 'music' | 'sfx';
 
-const STORAGE_KEY = 'falseDawn.volume';
-const DEFAULTS: Record<Bus, number> = { master: 0.8, music: 0.6, sfx: 0.9 };
+/** Written by the Settings menu (src/ui); audio only reads it. */
+const SETTINGS_KEY = 'falseDawn.settings';
+const DEFAULTS: Record<Bus, number> = { master: 0.8, music: 0.7, sfx: 0.9 };
 const PAUSE_DUCK = 0.3;
 
-function loadVolumes(): Partial<Record<Bus, number>> {
+function loadVolumes(): Record<Bus, number> {
+  const out = { ...DEFAULTS };
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}');
+    for (const bus of Object.keys(DEFAULTS) as Bus[]) {
+      if (typeof saved?.[bus] === 'number') out[bus] = saved[bus];
+    }
   } catch {
-    return {};
+    /* missing or corrupt settings: defaults */
   }
+  return out;
 }
 
 /**
@@ -28,7 +34,7 @@ class AudioManager {
 
   private gains = {} as Record<Bus, GainNode>;
   private duck!: GainNode;
-  private volumes: Record<Bus, number> = { ...DEFAULTS, ...loadVolumes() };
+  private volumes = loadVolumes();
   private muted = false;
   private readyFns: ((ctx: AudioContext) => void)[] = [];
 
@@ -52,17 +58,8 @@ class AudioManager {
     else this.readyFns.push(fn);
   }
 
-  getVolume(bus: Bus): number {
-    return this.volumes[bus];
-  }
-
-  setVolume(bus: Bus, value: number): void {
-    this.volumes[bus] = Math.min(1, Math.max(0, value));
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.volumes));
-    } catch {
-      /* storage blocked: volume still applies for this session */
-    }
+  setVolumes(v: Record<Bus, number>): void {
+    for (const bus of Object.keys(DEFAULTS) as Bus[]) this.volumes[bus] = Math.min(1, Math.max(0, v[bus]));
     this.apply();
   }
 

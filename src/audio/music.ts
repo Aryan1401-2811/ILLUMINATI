@@ -1,7 +1,7 @@
 import { audio } from './AudioManager';
 import { mtof, Synth } from './synth';
 
-export type TrackId = 'gold' | 'warden' | 'drone' | 'violet' | 'silence';
+export type TrackId = 'title' | 'gold' | 'goldIntense' | 'warden' | 'drone' | 'violet' | 'silence';
 
 interface TrackDef {
   bpm: number;
@@ -16,27 +16,55 @@ const kick = (s: Synth, t: number, from: number, gain: number, dur = 0.2) =>
   s.tone(t, { freq: from, to: 40, glide: dur * 0.8, dur, gain });
 const hat = (s: Synth, t: number, gain: number) => s.noise(t, { dur: 0.035, gain, filter: { type: 'highpass', freq: 7000 } });
 
+/** Title: a slow music box over soft pads. Every 4th bar, the sour note slips in. */
+const TITLE_BARS = [{ r: 60, m: false }, { r: 57, m: true }, { r: 65, m: false }, { r: 67, m: false }];
+const title: TrackDef = {
+  bpm: 76,
+  step(s, t, n, d) {
+    const i = n % 16;
+    const bar = Math.floor(n / 16);
+    const { r, m } = TITLE_BARS[bar % 4];
+    const [a, b, c] = triad(r, m);
+    if (i % 2 === 0) {
+      const offNote = bar % 4 === 3 && i === 14;
+      const note = offNote ? a + 13 : [a, c, b + 12, c, a + 12, c, b + 12, c][i / 2] + 12;
+      s.tone(t, { freq: mtof(note), detune: offNote ? 30 : 0, dur: d * 4, gain: 0.07, wet: 0.6 });
+      s.tone(t, { freq: mtof(note + 12), dur: d * 1.5, gain: 0.015, wet: 0.6 });
+    }
+    if (i === 0) {
+      for (const p of [a, b, c]) s.tone(t, { type: 'triangle', freq: mtof(p - 12), dur: d * 16 + 0.4, gain: 0.03, attack: 0.8, release: 1, wet: 0.6 });
+      s.tone(t, { freq: mtof(a - 24), dur: d * 16, gain: 0.15, attack: 0.3, release: 1 });
+    }
+  },
+};
+
 /** The lie: warm and bouncy in C major. Once every 8 bars one note is flat and out of tune. */
 const GOLD_BARS = [{ r: 60, m: false }, { r: 67, m: false }, { r: 69, m: true }, { r: 65, m: false }];
-const gold: TrackDef = {
-  bpm: 112,
+/** `intense` (zone 3): faster, kick on every beat, driving bass, and the sour note every 4 bars. */
+const makeGold = (bpm: number, intense: boolean): TrackDef => ({
+  bpm,
   step(s, t, n, d) {
     const i = n % 16;
     const bar = Math.floor(n / 16);
     const { r, m } = GOLD_BARS[bar % 4];
     const [a, b, c] = triad(r, m);
-    const offNote = bar % 8 === 7 && i === 14;
+    const offNote = bar % (intense ? 4 : 8) === (intense ? 3 : 7) && i === 14;
     const arp = offNote ? a + 8 : [a, b, c, a + 12, c, b, c, a + 12][i % 8];
     s.tone(t, { type: 'triangle', freq: mtof(arp), detune: offNote ? 35 : 0, dur: d * 1.6, gain: 0.07, wet: 0.25 });
     if (i === 0) {
       for (const p of [a, b, c]) s.tone(t, { type: 'triangle', freq: mtof(p - 12), dur: d * 16, gain: 0.035, attack: 0.25, release: 0.6, wet: 0.4 });
     }
-    if ([0, 6, 8, 14].includes(i)) s.tone(t, { type: 'triangle', freq: mtof(a - 24), dur: d * 2.5, gain: 0.22, filter: { type: 'lowpass', freq: 600 } });
-    if (i === 0 || i === 8) kick(s, t, 130, 0.45);
-    if (i === 4 || i === 12) s.noise(t, { dur: 0.12, gain: 0.12, filter: { type: 'bandpass', freq: 1500, q: 1 }, wet: 0.2 });
-    if (i % 2 === 1) hat(s, t, 0.035);
+    const bassSteps = intense ? [0, 2, 4, 6, 8, 10, 12, 14] : [0, 6, 8, 14];
+    if (bassSteps.includes(i)) {
+      s.tone(t, { type: intense ? 'sawtooth' : 'triangle', freq: mtof(a - 24 + (intense && i % 4 === 2 ? 12 : 0)), dur: d * 2.5, gain: intense ? 0.14 : 0.22, filter: { type: 'lowpass', freq: intense ? 900 : 600 } });
+    }
+    if (i % (intense ? 4 : 8) === 0) kick(s, t, 130, 0.45);
+    if (i === 4 || i === 12) s.noise(t, { dur: 0.12, gain: intense ? 0.16 : 0.12, filter: { type: 'bandpass', freq: 1500, q: 1 }, wet: 0.2 });
+    if (intense || i % 2 === 1) hat(s, t, i % 2 === 1 ? 0.035 : 0.02);
   },
-};
+});
+const gold = makeGold(112, false);
+const goldIntense = makeGold(124, true);
 
 /** The Warden: driving low ostinato and war drums in D minor, ending each phrase on a sour b9. */
 const WARDEN_BARS = [{ r: 50, m: true }, { r: 46, m: false }, { r: 43, m: true }, { r: 45, m: false }];
@@ -154,7 +182,7 @@ const violet: TrackDef = {
 /** Track output level; voices are written quiet so stacked chords don't clip. */
 const LEVEL = 2;
 
-const TRACKS: Partial<Record<TrackId, TrackDef>> = { gold, warden, drone, violet };
+const TRACKS: Partial<Record<TrackId, TrackDef>> = { title, gold, goldIntense, warden, drone, violet };
 
 interface Playing {
   def: TrackDef;
