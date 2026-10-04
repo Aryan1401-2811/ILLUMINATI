@@ -81,8 +81,8 @@ export class SoulOrb extends Entity implements Hurtbox {
     this.t += dt;
     this.object.scale.lerp(new THREE.Vector3(1, 1, 1), dt * 8);
     
-    // If boss is gone, die
-    if (!this.boss || !this.boss.scene) {
+    // If boss is gone or dead, die
+    if (!this.boss || !this.boss.scene || (this.boss as any).alive === false) {
       this.destroy();
       return;
     }

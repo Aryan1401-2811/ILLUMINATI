@@ -50,9 +50,13 @@ class SoulSpirit extends Entity {
 
   update(dt: number) {
     this.age += dt;
-    if (this.age > this.maxAge || (this.target && !this.target.alive)) {
+    if (this.age > this.maxAge) {
       this.destroy();
       return;
+    }
+    
+    if (this.target && !this.target.alive) {
+      this.target = null; // Lose track and fly straight
     }
     
     if (this.target) {
