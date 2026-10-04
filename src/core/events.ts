@@ -63,6 +63,8 @@ export interface GameEvents {
   'narrator:growth': { value: number };
   /** New game: restore the unbroken caption box (growth is re-read from runState). */
   'narrator:reset': Record<string, never>;
+  /** Settings changed (volume 0..1, screen shake on/off). Saved in localStorage by core/settings. */
+  'settings:changed': { master: number; music: number; sfx: number; screenShake: boolean };
   /** Show a tutorial prompt like "Press SPACE to dodge". */
   'ui:prompt': { text: string; durationSec?: number };
 

@@ -5,6 +5,7 @@ import { buildZone1 } from '@/world/zones';
 import { SCRIPT } from './script';
 import { newGame } from './flow';
 import { creditsPanelHtml } from './credits';
+import { buildSettingsPanel } from '@/ui/PauseMenu';
 import './guide'; // tutorial prompts + narrator reactions listen from the start
 
 const CONTROLS = [
@@ -43,6 +44,7 @@ class TitleScene extends GameScene {
       <div class="comic-menu">
         <button class="comic-btn" data-act="play">PLAY</button>
         <button class="comic-btn" data-act="controls">CONTROLS</button>
+        <button class="comic-btn" data-act="settings">SETTINGS</button>
         <button class="comic-btn" data-act="credits">CREDITS</button>
       </div>
       <div class="comic-panel hidden" data-panel></div>
@@ -53,6 +55,11 @@ class TitleScene extends GameScene {
 
     const panel = el.querySelector<HTMLElement>('[data-panel]')!;
     const menu = el.querySelector<HTMLElement>('.comic-menu')!;
+    const settingsPanel = buildSettingsPanel(() => {
+      settingsPanel.classList.add('hidden');
+      menu.classList.remove('hidden');
+    });
+    el.insertBefore(settingsPanel, panel);
     const showPanel = (html: string) => {
       panel.innerHTML = `${html}<p style="text-align:center;margin-top:14px"><button class="comic-btn" data-act="back">BACK</button></p>`;
       panel.classList.remove('hidden');
@@ -65,6 +72,9 @@ class TitleScene extends GameScene {
         void newGame();
       } else if (act === 'controls') {
         showPanel(`<h2>Controls</h2><table>${CONTROLS.map(([k, v]) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`).join('')}</table>`);
+      } else if (act === 'settings') {
+        menu.classList.add('hidden');
+        settingsPanel.classList.remove('hidden');
       } else if (act === 'credits') {
         showPanel(creditsPanelHtml());
       } else if (act === 'back') {
