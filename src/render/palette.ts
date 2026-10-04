@@ -20,34 +20,58 @@ export interface Palette {
   inkTint: THREE.Color;
   /** Overall saturation multiplier in the comic post effect. */
   saturation: number;
+  /** Contrast S-curve amount in the comic post effect, 0 (flat) .. 1 (punchy). */
+  contrast: number;
+  /** Paper colour: the panel gutter and a faint tint in the highlights. */
+  paper: THREE.Color;
+  /** Colour of the gutter outside the panel border (cream page, or the void behind the torn page). */
+  gutter: THREE.Color;
+  /** How torn the panel border is, 0 (clean ruled border) .. 1 (ripped page). */
+  tear: number;
 }
 
 export const PALETTES: Record<PaletteMode, Palette> = {
+  // The lie: a Saturday-morning page, sunny and a touch TOO bright.
   gold: {
-    background: new THREE.Color('#f3e2b8'),
-    fog: new THREE.Color('#e9cf95'),
-    keyLight: new THREE.Color('#ffd98a'),
-    keyIntensity: 3.2,
-    skyLight: new THREE.Color('#fff1cc'),
-    groundLight: new THREE.Color('#7a4a2a'),
-    ambientIntensity: 1.3,
+    background: new THREE.Color('#ffe7a6'),
+    fog: new THREE.Color('#ffdf9a'),
+    keyLight: new THREE.Color('#fff0cf'),
+    keyIntensity: 2.5,
+    skyLight: new THREE.Color('#fff7e3'),
+    groundLight: new THREE.Color('#b9854f'),
+    ambientIntensity: 1.2,
     energy: new THREE.Color('#ffc21a'),
-    inkTint: new THREE.Color('#5a2e12'),
-    saturation: 1.1,
+    inkTint: new THREE.Color('#6b3414'),
+    saturation: 1.45,
+    contrast: 0.7,
+    paper: new THREE.Color('#fff3d6'),
+    gutter: new THREE.Color('#fff3d6'),
+    tear: 0,
   },
+  // The truth: a torn page lit by calm violet light over deep blue-black ink.
   violet: {
-    background: new THREE.Color('#1d1433'),
-    fog: new THREE.Color('#2a1d4a'),
-    keyLight: new THREE.Color('#b9a3ff'),
-    keyIntensity: 2.6,
-    skyLight: new THREE.Color('#8f7bff'),
-    groundLight: new THREE.Color('#140b26'),
-    ambientIntensity: 1.1,
+    background: new THREE.Color('#120b2a'),
+    fog: new THREE.Color('#1c1240'),
+    keyLight: new THREE.Color('#e9e0ff'),
+    keyIntensity: 2.3,
+    skyLight: new THREE.Color('#b3a4ff'),
+    groundLight: new THREE.Color('#2a1b55'),
+    ambientIntensity: 1.2,
     energy: new THREE.Color('#9b6bff'),
-    inkTint: new THREE.Color('#0d0820'),
-    saturation: 1.05,
+    inkTint: new THREE.Color('#0b0722'),
+    saturation: 1.4,
+    contrast: 0.55,
+    paper: new THREE.Color('#e4dbff'),
+    gutter: new THREE.Color('#07041a'),
+    tear: 1,
   },
 };
+
+/**
+ * The palette the game is drawing with right now (the PaletteController's `current`).
+ * Post effects and VFX read it here so they need no reference to the Game.
+ */
+export const livePalette: { current: Palette } = { current: clonePalette(PALETTES.gold) };
 
 /** A live, blendable palette. Read `current` every frame; call blendTo() to transition. */
 export class PaletteController {
@@ -61,6 +85,7 @@ export class PaletteController {
   constructor(mode: PaletteMode = 'gold') {
     this.mode = mode;
     this.current = clonePalette(PALETTES[mode]);
+    livePalette.current = this.current;
     this.from = PALETTES[mode];
     this.to = PALETTES[mode];
   }
