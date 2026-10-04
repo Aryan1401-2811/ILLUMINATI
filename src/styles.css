@@ -53,6 +53,7 @@ body {
   background: #120c10;
 }
 
+/* Wins over any component that sets its own display (flex/grid panels in ui/ and narrative/). */
 .hidden {
-  display: none;
+  display: none !important;
 }
