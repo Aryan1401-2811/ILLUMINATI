@@ -3,7 +3,11 @@ import { Sequence } from './Sequence';
 import { Entity } from '@/core/Entity';
 import { events } from '@/core/events';
 import { toonMaterial, addOutline } from '@/render/toon';
-import { TelegraphStub } from '@/bosses/stubs';
+import { Telegraph } from '@/enemies/fx/Telegraph';
+import { startCollapse } from '@/vfx/Collapse';
+import { CharacterModel } from '@/render/CharacterModel';
+import { NARRATOR_BOSS } from '@/bosses/config';
+import { disposeBossVisuals, markSharedGeometry } from '@/bosses/dispose';
 import type { GameScene } from '@/core/GameScene';
 import type { Player } from '@/player/Player';
 import type { Warden } from '@/bosses/Warden';
@@ -11,24 +15,26 @@ import type { Warden } from '@/bosses/Warden';
 class NarratorFigure extends Entity {
   private pages: THREE.Mesh[] = [];
   private t = 0;
+  private placeholder = new THREE.Group();
+  private model: CharacterModel | null = null;
 
   constructor() {
     super();
-    // Ethereal dark body with glowing golden cracks
+    // Primitive stand-in until the .glb is in (the Warden scene preloads it)
     const bodyMat = toonMaterial({ color: '#111111', emissive: '#443300' });
-    const headMat = toonMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.5 }); 
-    
-    // Spiky, jagged body representing torn paper/ink
+    const headMat = toonMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.5 });
+
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.6, 3.5, 5), bodyMat);
     body.position.y = 1.75;
     addOutline(body, 3);
-    
+
     const head = new THREE.Mesh(new THREE.OctahedronGeometry(0.8, 0), headMat);
     head.position.y = 3.8;
     addOutline(head, 4);
-    
-    this.object.add(body, head);
-    
+
+    this.placeholder.add(body, head);
+    this.object.add(this.placeholder);
+
     // Floating pages orbiting him
     for (let i = 0; i < 8; i++) {
       const page = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.9), headMat);
@@ -38,7 +44,28 @@ class NarratorFigure extends Entity {
     }
   }
 
+  onAdded() {
+    void CharacterModel.load(NARRATOR_BOSS.model, { height: NARRATOR_BOSS.modelHeight, outlineWidth: 4 }).then((model) => {
+      markSharedGeometry(model.root);
+      if (this.destroyed) {
+        disposeBossVisuals(model.root);
+        return;
+      }
+      this.model = model;
+      this.placeholder.visible = false;
+      this.object.add(model.root);
+      // He steps out of the page, then gloats
+      model.play('Jump_Full_Long', { loop: false });
+      const gloat = () => {
+        model.mixer.removeEventListener('finished', gloat);
+        model.play('Cheer', { fade: 0.2 });
+      };
+      model.mixer.addEventListener('finished', gloat);
+    });
+  }
+
   update(dt: number) {
+    this.model?.update(dt);
     this.t += dt;
     this.pages.forEach((page, i) => {
       const data = page.userData;
@@ -48,53 +75,132 @@ class NarratorFigure extends Entity {
       page.rotation.y = angle;
     });
   }
+
+  onRemoved() {
+    disposeBossVisuals(this.object);
+  }
 }
+
+/** How the escape plays: debris keeps falling around the hero while they run to the Warden. */
+const ESCAPE = {
+  durationSec: 15,
+  spawnEverySec: 0.8,
+  warnSec: 1.0,      // telegraph time before a slab lands
+  scatter: 8,        // metres around the hero
+  hitRadius: 2.5,
+  damage: 8,
+  knockback: 9,
+  dropHeight: 20,
+  gravity: 40,
+};
 
 class FallingDebris extends Entity {
   private mesh: THREE.Mesh;
   private trail: THREE.Mesh;
+  private velocity = 0;
 
   constructor(pos: THREE.Vector3) {
     super();
     this.object.position.copy(pos);
-    this.object.position.y = 20;
-    
+    this.object.position.y = ESCAPE.dropHeight;
+
     // Jagged, chaotic monolithic debris
     const geo = new THREE.TetrahedronGeometry(2 + Math.random(), 1);
     const mat = toonMaterial({ color: '#0a0a0a', emissive: '#2b00ff', emissiveIntensity: 0.1 });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-    
+
     // Ghostly trail
     this.trail = new THREE.Mesh(
       new THREE.CylinderGeometry(1.5, 0.1, 8, 8),
       new THREE.MeshBasicMaterial({ color: '#2b00ff', transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     this.trail.position.y = 4;
-    
+
     this.object.add(this.mesh, this.trail);
-    
-    let velocity = 0;
-    this.own(this.scene.game.onFrame((dt) => {
-      velocity += 40 * dt;
-      this.object.position.y -= velocity * dt;
-      this.mesh.rotation.x += dt * 8;
-      this.mesh.rotation.y += dt * 6;
-      
-      if (this.object.position.y <= 0) {
-        this.object.position.y = 0;
-        events.emit('fx:shake', { strength: 0.7 });
-        events.emit('fx:onomatopoeia', { text: 'KRASH', position: this.position.clone(), color: '#555555', scale: 1.5 });
-        this.destroy();
+  }
+
+  update(dt: number) {
+    if (dt <= 0) return;
+    this.velocity += ESCAPE.gravity * dt;
+    this.object.position.y -= this.velocity * dt;
+    this.mesh.rotation.x += dt * 8;
+    this.mesh.rotation.y += dt * 6;
+
+    if (this.object.position.y <= 0) {
+      this.object.position.y = 0;
+      events.emit('fx:shake', { strength: 0.7 });
+      events.emit('fx:onomatopoeia', { text: 'KRASH', position: this.position.clone(), color: '#555555', scale: 1.5 });
+      // It lands where the telegraph warned: anyone still standing there gets hurt
+      for (const target of this.scene.combat.querySphere(this.position, ESCAPE.hitRadius, 'enemy')) {
+        this.scene.combat.applyHit(target, {
+          amount: ESCAPE.damage,
+          kind: 'melee',
+          element: 'none',
+          heavy: true,
+          team: 'enemy',
+          from: this.position.clone(),
+          knockback: ESCAPE.knockback,
+          sourceId: 'twistDebris',
+        });
       }
-    }));
+      this.destroy();
+    }
+  }
+
+  onRemoved() {
+    this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+    this.trail.geometry.dispose();
+    (this.trail.material as THREE.Material).dispose();
+  }
+}
+
+/** Rains telegraphed debris around the hero on game time (so it pauses with the game). */
+class DebrisRain extends Entity {
+  age = 0;
+  private nextSpawn = 0;
+  private pending: { at: THREE.Vector3; dropIn: number }[] = [];
+
+  constructor(private player: Player) {
+    super();
+  }
+
+  get done(): boolean {
+    return this.age >= ESCAPE.durationSec;
+  }
+
+  update(dt: number) {
+    if (dt <= 0) return;
+    this.age += dt;
+    this.nextSpawn -= dt;
+    if (!this.done && this.nextSpawn <= 0) {
+      this.nextSpawn = ESCAPE.spawnEverySec;
+      const at = new THREE.Vector3(
+        this.player.position.x + (Math.random() - 0.5) * ESCAPE.scatter,
+        0,
+        this.player.position.z + (Math.random() - 0.5) * ESCAPE.scatter,
+      );
+      this.scene.add(new Telegraph({ shape: 'circle', at, radius: ESCAPE.hitRadius, durationSec: ESCAPE.warnSec, color: '#9b6bff' }));
+      // Release it so it lands just as the telegraph fills
+      const fallSec = Math.sqrt((2 * ESCAPE.dropHeight) / ESCAPE.gravity);
+      this.pending.push({ at, dropIn: ESCAPE.warnSec - fallSec });
+    }
+    for (let i = this.pending.length - 1; i >= 0; i--) {
+      const p = this.pending[i];
+      p.dropIn -= dt;
+      if (p.dropIn <= 0) {
+        this.scene.add(new FallingDebris(p.at));
+        this.pending.splice(i, 1);
+      }
+    }
   }
 }
 
 export async function runTwist(scene: GameScene, player: Player, warden: Warden) {
   const seq = new Sequence(scene);
   seq.setSkippable(false); // Too important to skip
-  let spawner: ReturnType<typeof setInterval> | undefined;
+  let rain: DebrisRain | undefined;
   
   try {
     // 0. Initial lock
@@ -136,9 +242,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     
     // 5. Collapse & Escape
     seq.beat('twist:collapse');
-    // Call Visuals person's startCollapse if available
-    // @ts-ignore - The module exists locally as a stub, but VS Code might lag behind. Visuals team will overwrite it.
-    import('@/vfx/Collapse').then(mod => mod.startCollapse(scene)).catch(() => {});
+    startCollapse(scene, { center: player.position.clone() });
     
     await seq.say("Let the void swallow this pathetic stage!", 2.5, 'narrator');
     narrator.destroy(); // Vanishes/ascends
@@ -147,32 +251,15 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     seq.unlockPlayer();
     await seq.resetCamera(1);
     
-    // The interactive escape: 15s timer
-    const endTime = performance.now() + 15000;
-    
-    spawner = setInterval(() => {
-      if (performance.now() > endTime) return;
-      const tx = player.position.x + (Math.random() - 0.5) * 8;
-      const tz = player.position.z + (Math.random() - 0.5) * 8;
-      const targetPos = new THREE.Vector3(tx, 0, tz);
-      
-      scene.add(new TelegraphStub(targetPos, 2.5, 1));
-      setTimeout(() => {
-        // If we are still in this scene
-        if (scene.game.current === scene) {
-          scene.add(new FallingDebris(targetPos));
-        }
-      }, 1000);
-    }, 800);
-    
+    // The interactive escape: run to the Warden through telegraphed falling debris
+    const escape = scene.add(new DebrisRain(player));
+    rain = escape;
+
     // Wait until player reaches Warden OR time runs out
-    await seq.until(() => {
-      const reached = player.position.distanceTo(warden.position) < 3;
-      const timeout = performance.now() > endTime;
-      return reached || timeout;
-    });
-    
-    // Spawner is cleared in finally block
+    await seq.until(() => player.position.distanceTo(warden.position) < 3 || escape.done);
+    escape.destroy();
+    rain = undefined;
+
     
     // 6. True Light Granted
     await seq.lockPlayer();
@@ -202,7 +289,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     await scene.game.loadScene('final');
     
   } finally {
-    if (spawner) clearInterval(spawner);
+    rain?.destroy();
     seq.dispose();
   }
 }

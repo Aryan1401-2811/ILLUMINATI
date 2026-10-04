@@ -312,6 +312,16 @@ export class Armour {
     if (this.damageFlash > 0) this.damageFlash = Math.max(0, this.damageFlash - dt);
   }
 
+  /** Shell left, 0..1 (1 when it has just regrown). For boss health bars. */
+  get shellFraction(): number {
+    return this.state === 'shell' ? this.shellHp / this.shellMaxHp : 0;
+  }
+
+  /** Core left, 0..1 (0 once broken). For boss health bars. */
+  get coreFraction(): number {
+    return this.state === 'broken' ? 0 : this.coreHp / this.coreMaxHp;
+  }
+
   /** Free everything the armour created. Call from the owner's onRemoved() unless the owner
    *  already disposes its object tree (the Enemy base class does). Outline materials are shared, so skip them. */
   dispose(): void {

@@ -2,24 +2,27 @@ import * as THREE from 'three';
 import { GameScene, defineScene } from '@/core/GameScene';
 import { events } from '@/core/events';
 import { Player } from '@/player/Player';
-import { buildPlaygroundArena } from '@/world/Arena';
+import { buildWardenArena } from '@/world/zones';
+import { loadGLTF } from '@/core/assets';
+import { WARDEN, NARRATOR_BOSS } from './config';
 import { Sequence } from '@/sequences/Sequence';
 import { Warden } from './Warden';
 import { runTwist } from '@/sequences/twist';
 
 class WardenScene extends GameScene {
   async load() {
-    // Swap for buildWardenArena when Visuals person merges it
-    buildPlaygroundArena(this);
-    
+    const layout = buildWardenArena(this);
+    // Warm the cache so the Warden and the Narrator (who steps out in the twist) don't pop in
+    await Promise.all([loadGLTF(WARDEN.model), loadGLTF(NARRATOR_BOSS.model)]);
+
     const player = this.add(new Player());
     await player.ready;
-    player.position.set(0, 0, 8);
+    player.position.copy(layout.playerSpawn);
     player.loadFromRun();
     this.cameraRig.follow(player.object);
     
     const warden = this.add(new Warden());
-    warden.position.set(0, 0, -4);
+    warden.position.copy(layout.enemySpawns[0] ?? new THREE.Vector3(0, 0, -4));
     
     // Cinematic Boss Intro (un-awaited so load() can finish and game can render)
     void (async () => {
@@ -43,7 +46,7 @@ class WardenScene extends GameScene {
     
     // Player death handling
     this.listen(events.on('player:died', () => {
-      setTimeout(() => player.revive(new THREE.Vector3(0, 0, 8)), 2000);
+      setTimeout(() => player.revive(layout.playerSpawn.clone()), 2000);
     }));
   }
 }
