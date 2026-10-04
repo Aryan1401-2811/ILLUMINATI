@@ -89,3 +89,47 @@ export function peeledCorner(kit: ZoneKit, x: number, z: number, rotY: number, s
   }
   kit.glowBox(x + s * size * 0.55, 0.02, z + c * size * 0.55, size * 0.8, 0.02, size * 0.9, RUIN.violet, 1.5, { rotY });
 }
+
+/** A violet flame in a stone bowl. `height` is the stand height; low ones go on the camera side. */
+export function brazier(kit: ZoneKit, x: number, z: number, height = 1.5) {
+  kit.cyl(x, 0, z, 0.2, 0.34, height, '#4a416b', { segments: 8, shadow: true });
+  kit.cyl(x, height, z, 0.62, 0.26, 0.4, '#3a3257', { segments: 10 });
+  kit.glow(x, height + 0.55, z, 0.34, RUIN.violet, 2.4, [1, 1.5, 1]);
+  kit.glow(x, height + 0.5, z, 0.17, '#f1e9ff', 3, [1, 1.4, 1]);
+  kit.collideCircle(x, z, 0.5);
+}
+
+/**
+ * A heavy chain sagging between two points, built from alternating flat and upright links.
+ * Every `glowEvery`-th link glows (0 = none), e.g. violet runes on the iron that binds the gold.
+ */
+export function chain(
+  kit: ZoneKit,
+  from: [number, number, number],
+  to: [number, number, number],
+  opts: { color?: string; glow?: string; glowEvery?: number; sag?: number; link?: number; intensity?: number } = {},
+) {
+  const link = opts.link ?? 0.5;
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const dz = to[2] - from[2];
+  const n = Math.max(2, Math.round(Math.hypot(dx, dy, dz) / (link * 0.8)));
+  const sag = opts.sag ?? 1;
+  const point = (t: number): [number, number, number] => [from[0] + dx * t, from[1] + dy * t - Math.sin(t * Math.PI) * sag, from[2] + dz * t];
+  for (let i = 0; i < n; i++) {
+    const a = point(i / n);
+    const b = point((i + 1) / n);
+    const ex = b[0] - a[0];
+    const ey = b[1] - a[1];
+    const ez = b[2] - a[2];
+    const len = Math.hypot(ex, ey, ez);
+    const rot = { rotY: -Math.atan2(ez, ex), rotZ: Math.asin(ey / len), outline: false };
+    const flat = i % 2 === 0;
+    const w = flat ? link * 0.62 : link * 0.24;
+    const h = flat ? link * 0.24 : link * 0.62;
+    const y = (a[1] + b[1]) / 2 - h / 2;
+    const glows = opts.glow && opts.glowEvery && i % opts.glowEvery === 0;
+    if (glows) kit.glowBox((a[0] + b[0]) / 2, y, (a[2] + b[2]) / 2, len * 1.15, h, w, opts.glow!, opts.intensity ?? 2.2, rot);
+    else kit.box((a[0] + b[0]) / 2, y, (a[2] + b[2]) / 2, len * 1.15, h, w, opts.color ?? '#2b2440', rot);
+  }
+}
