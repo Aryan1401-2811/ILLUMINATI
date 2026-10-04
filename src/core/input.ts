@@ -11,6 +11,8 @@ export type Action =
   | 'ability1'
   | 'ability2'
   | 'ability3'
+  | 'guard'
+  | 'heal'
   | 'interact'
   | 'pause'
   | 'skip';
@@ -23,10 +25,12 @@ const BINDINGS: Record<Action, string[]> = {
   right: ['KeyD', 'ArrowRight'],
   attack: ['Mouse0', 'KeyJ'],
   dodge: ['Space', 'ShiftLeft', 'ShiftRight'],
-  ability1: ['Mouse2', 'KeyQ', 'KeyK'],
+  ability1: ['KeyQ', 'KeyK'],
   ability2: ['KeyE', 'KeyL'],
   ability3: ['KeyR', 'KeyI'],
-  interact: ['KeyF'],
+  guard: ['Mouse2', 'KeyC'],
+  heal: ['KeyF', 'KeyH'],
+  interact: ['KeyX'],
   pause: ['Escape', 'KeyP'],
   skip: ['Enter'],
 };
