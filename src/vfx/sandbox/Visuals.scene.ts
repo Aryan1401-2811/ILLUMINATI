@@ -4,18 +4,19 @@ import { events } from '@/core/events';
 import { HERO_MODEL, Player } from '@/player/Player';
 import { TrainingDummy } from '@/enemies/TrainingDummy';
 import { buildPlaygroundArena } from '@/world/Arena';
-import { buildZone1, type ZoneLayout } from '@/world/zones';
+import { buildZone1, buildZone2, type ZoneLayout } from '@/world/zones';
 import { ModelGallery } from './ModelGallery';
 import { Soul } from '../Soul';
 import '../install'; // effects for every scene, see install.ts
 
 const ZONES: Record<string, (scene: GameScene) => ZoneLayout> = {
   zone1: buildZone1,
+  zone2: buildZone2,
 };
 
 /**
  * Visuals sandbox.  ?scene=visuals&view=<name>&debug
- *   view=zone1 (default)   walk the arena as the hero; training dummies stand on the enemy spawns
+ *   view=zone1 (default), zone2   walk the arena as the hero; training dummies stand on the enemy spawns
  *   view=models            every character model side by side.  [ and ] cycle their clips.
  * T flips the palette (gold lie ↔ violet truth).
  */
