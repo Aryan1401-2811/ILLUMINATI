@@ -15,6 +15,8 @@ Every third-party asset, library and AI tool used in **False Dawn**. Add a row *
 
 ## Audio
 
+All music and sound effects are synthesized in code at runtime with the Web Audio API (`src/audio/`). The game ships no audio files.
+
 | Asset | Author | Source | License | Used for |
 |---|---|---|---|---|
 
