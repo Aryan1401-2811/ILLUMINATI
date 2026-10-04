@@ -12,10 +12,37 @@ import { createAbility } from './abilities/registry';
 import { runState } from '@/core/runState';
 
 /** Hero model + clip names. Swap these when the final hero model arrives. */
-export const HERO_MODEL = {
-  path: 'models/robot_expressive.glb',
+interface HeroAnims {
+  idle: string;
+  run: string;
+  walk: string;
+  /** Fallback swing when `combo` is missing. */
+  attack: string;
+  /** One clip per combo step; the last is the heavy finisher. */
+  combo?: string[];
+  dodge: string;
+  hurt?: string;
+  cast: string;
+  death: string;
+  victory: string;
+}
+
+/** CC0 KayKit knight from Visuals (clip names in public/models/MODELS.md). */
+export const HERO_MODEL: { path: string; height: number; anims: HeroAnims } = {
+  path: 'models/hero/hero.glb',
   height: 1.8,
-  anims: { idle: 'Idle', run: 'Running', attack: 'Punch', dodge: 'Jump', cast: 'Punch', death: 'Death', victory: 'ThumbsUp', walk: 'Walking' },
+  anims: {
+    idle: 'Idle',
+    run: 'Running_A',
+    walk: 'Walking_A',
+    attack: '1H_Melee_Attack_Slice_Diagonal',
+    combo: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Slice_Horizontal', '1H_Melee_Attack_Chop'],
+    dodge: 'Dodge_Forward',
+    hurt: 'Hit_A',
+    cast: 'Spellcast_Shoot',
+    death: 'Death_A',
+    victory: 'Cheer',
+  },
 };
 
 export type PlayerState = 'move' | 'attack' | 'dodge' | 'cast' | 'channel' | 'hurt' | 'dead' | 'locked';
@@ -206,6 +233,12 @@ export class Player extends Entity implements Hurtbox {
     this.invulnLeft = PLAYER.hurtInvuln;
     this.comboStep = -1;
     this.setState('hurt');
+    const hurt = HERO_MODEL.anims.hurt;
+    if (hurt && this.model?.has(hurt)) {
+      // Squeeze the flinch into the stun so control returns as the clip ends.
+      const clip = this.model.clipDuration(hurt) || 1;
+      this.model.play(hurt, { loop: false, restart: true, fade: 0.05, timeScale: clip / Math.max(0.1, PLAYER.hurtStun) });
+    }
     return 'damaged';
   }
 
@@ -387,8 +420,10 @@ export class Player extends Entity implements Hurtbox {
     this.setState('attack');
     const s = this.step;
     const total = s.windup + s.active + s.recovery;
-    const clip = this.model?.clipDuration(HERO_MODEL.anims.attack) || 1;
-    this.model?.play(HERO_MODEL.anims.attack, { loop: false, restart: true, fade: 0.05, timeScale: (clip / total) * 0.9 });
+    // A different swing per combo step, so the heavy finisher reads as a big chop.
+    const anim = HERO_MODEL.anims.combo?.[step] ?? HERO_MODEL.anims.attack;
+    const clip = this.model?.clipDuration(anim) || 1;
+    this.model?.play(anim, { loop: false, restart: true, fade: 0.05, timeScale: (clip / total) * 0.9 });
     events.emit('player:attack', { comboStep: step, heavy: s.heavy, position: this.position.clone() });
   }
 
