@@ -59,6 +59,7 @@ class FallingDebris extends Entity {
 export async function runTwist(scene: GameScene, player: Player, warden: Warden) {
   const seq = new Sequence(scene);
   seq.setSkippable(false); // Too important to skip
+  let spawner: ReturnType<typeof setInterval> | undefined;
   
   try {
     // 0. Initial lock
@@ -97,6 +98,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     // 5. Collapse & Escape
     seq.beat('twist:collapse');
     // Call Visuals person's startCollapse if available
+    // @ts-ignore - The module exists locally as a stub, but VS Code might lag behind. Visuals team will overwrite it.
     import('@/vfx/Collapse').then(mod => mod.startCollapse(scene)).catch(() => {});
     
     await seq.say("Let the void swallow this pathetic stage!", 2.5, 'narrator');
@@ -109,7 +111,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     // The interactive escape: 15s timer
     const endTime = performance.now() + 15000;
     
-    const spawner = setInterval(() => {
+    spawner = setInterval(() => {
       if (performance.now() > endTime) return;
       const tx = player.position.x + (Math.random() - 0.5) * 8;
       const tz = player.position.z + (Math.random() - 0.5) * 8;
@@ -131,7 +133,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
       return reached || timeout;
     });
     
-    clearInterval(spawner);
+    // Spawner is cleared in finally block
     
     // 6. True Light Granted
     await seq.lockPlayer();
@@ -161,6 +163,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     await scene.game.loadScene('final');
     
   } finally {
+    if (spawner) clearInterval(spawner);
     seq.dispose();
   }
 }

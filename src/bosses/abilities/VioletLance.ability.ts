@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Ability, defineAbility, type AbilityContext } from '@/player/abilities/Ability';
 import { Entity } from '@/core/Entity';
+import { events } from '@/core/events';
 
 class LanceBeamVisual extends Entity {
   private age = 0;
@@ -77,8 +78,9 @@ export class VioletLance extends Ability {
     const range = 22;
     const from = player.position.clone().setY(1.1);
     
-    // Visual
+    // Visual and Sound
     scene.add(new LanceBeamVisual(from, aimDir, range));
+    events.emit('fx:onomatopoeia', { text: 'SWOOOSH', position: from.clone().add(aimDir.clone().multiplyScalar(2)), color: '#9b6bff', scale: 1.5 });
     
     // Query hits along the beam
     const hitIds = new Set<string>();
@@ -101,6 +103,8 @@ export class VioletLance extends Ability {
           knockback: 6,
           sourceId: this.id
         });
+        
+        events.emit('fx:onomatopoeia', { text: 'PIERCE!', position: target.position.clone().add(new THREE.Vector3(0, 1.5, 0)), color: '#ffffff' });
       }
     }
     

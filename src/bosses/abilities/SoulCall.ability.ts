@@ -114,6 +114,7 @@ export class SoulCall extends Ability {
   cast(ctx: AbilityContext) {
     if (!souls.spendCharge()) return;
     const from = ctx.player.position.clone().addScaledVector(ctx.aimDir, 0.5);
+    events.emit('fx:onomatopoeia', { text: 'PHEW~', position: from.clone().add(new THREE.Vector3(0, 2, 0)), color: '#e0c8ff' });
     ctx.scene.add(new SoulSpirit(from, this.id));
   }
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Ability, defineAbility, type AbilityContext } from '@/player/abilities/Ability';
 import type { Hit, HitResult } from '@/combat/types';
 import { Entity } from '@/core/Entity';
+import { events } from '@/core/events';
 
 class WardVisual extends Entity {
   private material: THREE.MeshBasicMaterial;
@@ -66,6 +67,7 @@ export class RadiantGuard extends Ability {
   cast(ctx: AbilityContext) {
     this.ward = new WardVisual(ctx.player);
     ctx.scene.add(this.ward);
+    events.emit('fx:onomatopoeia', { text: 'SHING', position: ctx.player.position.clone().add(new THREE.Vector3(0, 2, 0)), color: '#c9b2ff' });
   }
 
   onHold(ctx: AbilityContext, dt: number): boolean {
@@ -84,6 +86,7 @@ export class RadiantGuard extends Ability {
       ctx.player.gainEnergy(hit.amount * 0.8);
       this.ward?.flash();
       ctx.scene.cameraRig.addShake(0.05); // Tiny shake on block
+      events.emit('fx:onomatopoeia', { text: 'CLANG!', position: ctx.player.position.clone().add(new THREE.Vector3(0, 2, 0)), scale: 0.8 });
       return 'blocked';
     }
     // Melee breaks through
