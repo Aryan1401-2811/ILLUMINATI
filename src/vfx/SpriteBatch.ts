@@ -39,6 +39,8 @@ export interface Particle {
   alpha: number;
   /** Fraction of life after which it starts to fade out (0 = fades all its life). */
   fadeFrom: number;
+  /** Fraction of life spent fading in (0 = appears instantly). */
+  fadeIn: number;
   /** Stop at this height and stay there (ink drops landing). */
   floorY: number;
 }
@@ -176,7 +178,8 @@ export class SpriteBatch {
       else if (tumble) _q.setFromEuler(_e.set(p.tiltX, p.rot, p.tiltZ));
       else _q.identity();
       this.mesh.setMatrixAt(i, _m.compose(p.pos, _q, _s));
-      const fade = k <= p.fadeFrom ? 1 : 1 - (k - p.fadeFrom) / (1 - p.fadeFrom);
+      let fade = k <= p.fadeFrom ? 1 : 1 - (k - p.fadeFrom) / (1 - p.fadeFrom);
+      if (k < p.fadeIn) fade *= k / p.fadeIn;
       this.colors.setXYZW(i, p.color.r * p.intensity, p.color.g * p.intensity, p.color.b * p.intensity, p.alpha * fade);
       this.rots.setX(i, p.rot);
     }
@@ -220,5 +223,6 @@ function reset(p: Particle) {
   p.intensity = 1;
   p.alpha = 1;
   p.fadeFrom = 0.5;
+  p.fadeIn = 0;
   p.floorY = -Infinity;
 }

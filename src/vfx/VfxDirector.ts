@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Entity } from '@/core/Entity';
 import { events, type GameEvents } from '@/core/events';
 import type { GameScene } from '@/core/GameScene';
+import { livePalette } from '@/render/palette';
+import { AmbientParticles } from './AmbientParticles';
 import { ComicWords } from './ComicWords';
 import { ImpactFx, elementColor } from './ImpactFx';
 import { FX_COLORS, WORDS } from './config';
@@ -17,6 +19,7 @@ import { fxDt } from './fxTime';
 export class VfxDirector extends Entity {
   readonly words = new ComicWords();
   readonly impact = new ImpactFx();
+  readonly ambient = new AmbientParticles();
   private lastShatterAt = new THREE.Vector3(1e9, 0, 0);
   private lastShatterAge = 99;
 
@@ -25,7 +28,7 @@ export class VfxDirector extends Entity {
   }
 
   onAdded() {
-    this.object.add(this.impact.group, this.words.group);
+    this.object.add(this.ambient.group, this.impact.group, this.words.group);
     this.own(events.on('combat:hit', (e) => this.onHit(e)));
     this.own(events.on('fx:onomatopoeia', (e) => this.onWord(e)));
     this.own(events.on('enemy:killed', ({ position }) => this.impact.death(position, FX_COLORS.violetSoft)));
@@ -38,11 +41,14 @@ export class VfxDirector extends Entity {
     this.lastShatterAge += step;
     this.impact.update(step);
     this.words.update(step);
+    // `tear` is 0 on the gold page and 1 on the violet one, and blends during the flip
+    this.ambient.update(step, this.scene.cameraRig.focus, livePalette.current.tear);
   }
 
   onRemoved() {
     this.impact.dispose();
     this.words.dispose();
+    this.ambient.dispose();
   }
 
   private onHit({ hit, result, position, targetTeam }: GameEvents['combat:hit']) {
