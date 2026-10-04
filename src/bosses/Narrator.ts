@@ -150,6 +150,16 @@ export class NarratorBoss extends Entity implements Hurtbox {
   }
 
   private fireGoldFan(dir: THREE.Vector3) {
+    if (Math.random() > 0.6) {
+      const barks = [
+        "Bleed for my narrative!",
+        "Your pain is merely exposition!",
+        "Dance, puppet, dance!",
+        "Every wound is a word I write!"
+      ];
+      events.emit('narrator:say', { text: barks[Math.floor(Math.random() * barks.length)], speaker: 'narrator', durationSec: 2 });
+    }
+    
     events.emit('fx:onomatopoeia', { text: 'PEW', position: this.position.clone().add(new THREE.Vector3(0, 3, 0)) });
     const count = this.phase === 1 ? 3 : 5;
     for (let i = 0; i < count; i++) {
@@ -172,6 +182,16 @@ export class NarratorBoss extends Entity implements Hurtbox {
   }
 
   private fireGoldBurst() {
+    if (Math.random() > 0.5) {
+      const barks = [
+        "I AM THE AUTHOR!",
+        "OBEY THE SCRIPT!",
+        "KNEEL BEFORE THE INK!",
+        "YOU ARE NOTHING BUT DUST AND LETTERS!"
+      ];
+      events.emit('narrator:say', { text: barks[Math.floor(Math.random() * barks.length)], speaker: 'narrator', durationSec: 2.5 });
+    }
+    
     this.scene.add(new Shockwave(this.position, 6, '#ffc21a'));
     events.emit('fx:shake', { strength: 0.5 });
     events.emit('fx:onomatopoeia', { text: 'BAM', position: this.position.clone(), scale: 2 });
