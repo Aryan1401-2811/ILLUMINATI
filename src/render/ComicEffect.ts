@@ -14,6 +14,8 @@ uniform float panelBorder;
 uniform float tear;
 uniform vec3 paperColor;
 uniform vec3 gutterColor;
+uniform float buzz;
+uniform float time;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -24,6 +26,13 @@ float vnoise(vec2 p) {
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
+// How much a pixel is "gold light": bright and warm. Hot energy counts far more than sunny walls.
+float goldness(vec3 c) {
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  float warm = smoothstep(0.06, 0.28, c.r - c.b) * smoothstep(-0.06, 0.08, c.g - c.b);
+  return warm * (0.22 * smoothstep(0.35, 0.6, l) + 0.78 * smoothstep(0.62, 0.9, l));
+}
+
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   // Everything is sized against a 1080p page so the print looks the same on any screen.
   float px = resolution.y / 1080.0;
@@ -31,7 +40,23 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
   // Grade in a perceptual space: the tone mapper hands us flat, greyish colour and a comic
   // wants bold flat ink, so push saturation and contrast back in.
-  vec3 c = pow(max(inputColor.rgb, 0.0), vec3(1.0 / 2.2));
+  vec3 src = inputColor.rgb;
+
+  // Gold buzz (story clue): wherever the picture is bright gold, the colour plates slip a pixel
+  // or two and the light flickers, stepping like a badly registered print. Violet never does.
+  if (buzz > 0.001) {
+    float tick = floor(time * 14.0);
+    vec2 jit = vec2(hash(vec2(tick, 1.3)), hash(vec2(tick, 7.1))) - 0.5;
+    vec2 off = (vec2(1.7, 0.0) + jit * 2.2) * px / resolution;
+    vec3 sa = texture2D(inputBuffer, uv + off).rgb;
+    vec3 sb = texture2D(inputBuffer, uv - off).rgb;
+    float m = clamp(max(goldness(src), max(goldness(sa), goldness(sb))) * buzz, 0.0, 1.0);
+    src = mix(src, vec3(sa.r, src.g, sb.b), m);
+    float hot = smoothstep(0.62, 0.9, dot(src, vec3(0.299, 0.587, 0.114)));
+    src *= 1.0 + m * hot * 0.16 * (hash(vec2(tick, 3.7)) - 0.5);
+  }
+
+  vec3 c = pow(max(src, 0.0), vec3(1.0 / 2.2));
   float lum = dot(c, vec3(0.299, 0.587, 0.114));
   // (vibrance: already-neutral paper and ink stay neutral, colours get bolder)
   float chroma = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
@@ -112,6 +137,8 @@ export class ComicEffect extends Effect {
         ['tear', new THREE.Uniform(0)],
         ['paperColor', new THREE.Uniform(new THREE.Color('#fbf1dc'))],
         ['gutterColor', new THREE.Uniform(new THREE.Color('#fbf1dc'))],
+        ['buzz', new THREE.Uniform(1)],
+        ['time', new THREE.Uniform(0)],
       ]),
     });
   }
@@ -121,8 +148,11 @@ export class ComicEffect extends Effect {
   }
 
   /** Called by the effect pass every frame: pull the palette-driven look values. */
-  update(_renderer: THREE.WebGLRenderer, _inputBuffer: THREE.WebGLRenderTarget, _deltaTime?: number) {
+  update(_renderer: THREE.WebGLRenderer, _inputBuffer: THREE.WebGLRenderTarget, deltaTime = 1 / 60) {
     const p = livePalette.current;
+    const time = this.uniform<number>('time');
+    time.value = (time.value + deltaTime) % 1000;
+    this.uniform<number>('buzz').value = p.buzz;
     this.uniform<number>('contrast').value = p.contrast;
     this.uniform<number>('tear').value = p.tear;
     this.uniform<THREE.Color>('paperColor').value.copy(p.paper);

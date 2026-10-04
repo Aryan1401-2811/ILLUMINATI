@@ -26,6 +26,11 @@ export interface Palette {
   paper: THREE.Color;
   /** Colour of the gutter outside the panel border (cream page, or the void behind the torn page). */
   gutter: THREE.Color;
+  /**
+   * Gold buzz: how much bright gold jitters, fringes and flickers on screen. A story clue —
+   * gold energy is subtly WRONG in the first half, and openly sick after the twist.
+   */
+  buzz: number;
   /** How torn the panel border is, 0 (clean ruled border) .. 1 (ripped page). */
   tear: number;
 }
@@ -46,6 +51,7 @@ export const PALETTES: Record<PaletteMode, Palette> = {
     contrast: 0.7,
     paper: new THREE.Color('#fff3d6'),
     gutter: new THREE.Color('#fff3d6'),
+    buzz: 1,
     tear: 0,
   },
   // The truth: a torn page lit by calm violet light over deep blue-black ink.
@@ -63,6 +69,7 @@ export const PALETTES: Record<PaletteMode, Palette> = {
     contrast: 0.55,
     paper: new THREE.Color('#e4dbff'),
     gutter: new THREE.Color('#07041a'),
+    buzz: 1.8,
     tear: 1,
   },
 };
