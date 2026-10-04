@@ -6,6 +6,7 @@ import { TrainingDummy } from '@/enemies/TrainingDummy';
 import { buildPlaygroundArena } from '@/world/Arena';
 import { buildFinalArena, buildWardenArena, buildZone1, buildZone2, buildZone3, type ZoneLayout } from '@/world/zones';
 import { ModelGallery } from './ModelGallery';
+import { StandIn, yawToward } from './StandIn';
 import { Soul } from '../Soul';
 import { startCollapse } from '../Collapse';
 import '../install'; // effects for every scene, see install.ts
@@ -18,9 +19,20 @@ const ZONES: Record<string, (scene: GameScene) => ZoneLayout> = {
   final: buildFinalArena,
 };
 
+/** Which models stand on the enemy spawns of each arena (after the first three, which get dummies). */
+const CAST: Record<string, string[]> = {
+  zone1: ['grunt', 'grunt', 'grunt', 'grunt', 'grunt'],
+  zone2: ['brute', 'grunt', 'grunt', 'brute', 'grunt', 'grunt', 'grunt'],
+  zone3: ['grunt', 'brute', 'grunt', 'grunt', 'brute', 'grunt', 'grunt'],
+  warden: ['warden'],
+  final: ['narrator'],
+};
+const DUMMIES = 3;
+
 /**
  * Visuals sandbox.  ?scene=visuals&view=<name>&debug
- *   view=zone1 (default), zone2, zone3, warden, final   walk the arena as the hero; training dummies stand on the enemy spawns
+ *   view=zone1 (default), zone2, zone3, warden, final   walk the arena as the hero. Three training
+ *                          dummies to hit, plus the real character models standing in as the cast.
  *   view=models            every character model side by side.  [ and ] cycle their clips.
  * T flips the palette (gold lie ↔ violet truth).  C starts the collapse.  X plays the whole twist.
  */
@@ -29,7 +41,7 @@ class VisualsScene extends GameScene {
 
   async load() {
     const view = new URLSearchParams(location.search).get('view') ?? 'zone1';
-    if (ZONES[view]) await this.loadZone(ZONES[view]);
+    if (ZONES[view]) await this.loadZone(ZONES[view], CAST[view] ?? []);
     else await this.loadGallery();
     // the final arena only exists after the twist: show it in the violet truth
     if (view === 'final') {
@@ -55,7 +67,7 @@ class VisualsScene extends GameScene {
     this.listen(() => window.removeEventListener('keydown', onKey));
   }
 
-  private async loadZone(build: (scene: GameScene) => ZoneLayout) {
+  private async loadZone(build: (scene: GameScene) => ZoneLayout, cast: string[]) {
     const layout = build(this);
     // Sandbox preview only: show the real hero model until Foundation swaps HERO_MODEL for good
     // (values from public/models/MODELS.md).
@@ -69,7 +81,27 @@ class VisualsScene extends GameScene {
     player.setLoadout(['goldBolt', 'goldBurst', null]);
     player.gainEnergy(100);
     this.cameraRig.follow(player.object);
-    layout.enemySpawns.slice(0, 5).forEach((p, i) => this.add(new TrainingDummy({ shoots: i === 4 })).position.copy(p));
+    // Boss arenas: the boss stands on spawn 0 and the dummies move down the list.
+    const boss = cast.length === 1;
+    const spawns = [...layout.enemySpawns];
+    const standIns: Promise<void>[] = [];
+    if (boss) {
+      const at = spawns.shift()!;
+      const s = this.add(new StandIn(cast[0], cast[0] === 'narrator' ? 'float' : 'block', yawToward(at, layout.playerSpawn), cast[0] === 'narrator' ? 0.7 : 0));
+      s.position.copy(at);
+      standIns.push(s.ready);
+      if (cast[0] === 'narrator') for (const [dx, dz] of [[-2.2, 0.6], [2.2, 0.6], [0, -1.8]]) this.add(new Soul()).position.set(at.x + dx, 1.4, at.z + dz);
+    }
+    spawns.slice(0, DUMMIES).forEach((p) => this.add(new TrainingDummy()).position.copy(p));
+    if (!boss) {
+      spawns.slice(DUMMIES).forEach((p, i) => {
+        if (!cast[i]) return;
+        const s = this.add(new StandIn(cast[i], 'idle', yawToward(p, layout.playerSpawn)));
+        s.position.copy(p);
+        standIns.push(s.ready);
+      });
+    }
+    await Promise.all(standIns);
     this.listen(events.on('player:died', () => setTimeout(() => player.revive(layout.playerSpawn), 1500)));
     setTimeout(() => events.emit('ui:prompt', { text: 'VISUALS SANDBOX · WASD · LMB combo · SPACE dodge · Q bolt · E burst · T flip · C collapse · X twist', durationSec: 8 }), 300);
   }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Entity } from '@/core/Entity';
 import { CharacterModel } from '@/render/CharacterModel';
 import { MODEL_CATALOG, type CatalogEntry } from './modelCatalog';
+import { disposeSkeletons } from './StandIn';
 
 const GALLERY = { spacing: 3.4, z: -1.5, loopOnce: ['attack', 'attack2', 'heavy', 'dodge', 'hit', 'death', 'cast', 'castBig', 'slam', 'bash', 'kneel', 'spawn', 'give'] };
 
@@ -71,6 +72,10 @@ export class ModelGallery extends Entity {
     }
     this.replayIn = once ? longest + 0.8 : 0;
     this.label.textContent = lines.join('\n');
+  }
+
+  onRemoved() {
+    for (const { model } of this.models) disposeSkeletons(model.root);
   }
 
   update(dt: number) {
