@@ -17,6 +17,8 @@ import { ARMOUR_HEAVY_MULTIPLIER, ARMOUR_SHELL_COLOR, ARMOUR_CORE_COLOR, ARMOUR_
  * The Bosses person reuses this for the Warden and the Narrator.
  */
 
+const TIMER_SEGMENTS = 32;
+
 export interface ArmourConfig {
   shellHp: number;
   coreHp: number;
@@ -124,7 +126,7 @@ export class Armour {
       depthWrite: false,
     });
     this.timerRing = new THREE.Mesh(
-      new THREE.RingGeometry(size * 0.55, size * 0.65, 32, 1, 0, Math.PI * 2),
+      new THREE.RingGeometry(size * 0.55, size * 0.65, TIMER_SEGMENTS, 1, 0, Math.PI * 2),
       this.timerMat,
     );
     this.timerRing.rotation.x = -Math.PI / 2;
@@ -258,12 +260,8 @@ export class Armour {
       // Timer ring shrinks
       const timerFrac = Math.max(0, this.coreTimer / this.cfg.coreWindowSec);
       this.timerMat.opacity = 0.7;
-      // Rebuild the ring geometry to show remaining arc
-      this.timerRing.geometry.dispose();
-      const size = this.cfg.size ?? 0.9;
-      this.timerRing.geometry = new THREE.RingGeometry(
-        size * 0.55, size * 0.65, 32, 1, 0, Math.PI * 2 * timerFrac,
-      );
+      // Show the remaining arc by drawing only part of the full ring (6 indices per segment)
+      this.timerRing.geometry.setDrawRange(0, Math.ceil(TIMER_SEGMENTS * timerFrac) * 6);
       // Flash red when almost out
       if (timerFrac < 0.3) {
         const flash = Math.sin(this.pulsePhase * 10) > 0;
@@ -312,6 +310,19 @@ export class Armour {
 
     // ── Damage flash decay ───────────────────────────────────────────────
     if (this.damageFlash > 0) this.damageFlash = Math.max(0, this.damageFlash - dt);
+  }
+
+  /** Free everything the armour created. Call from the owner's onRemoved() unless the owner
+   *  already disposes its object tree (the Enemy base class does). Outline materials are shared, so skip them. */
+  dispose(): void {
+    this.visual.traverse((o) => {
+      if (o.userData.isOutline) return;
+      const mesh = o as THREE.Mesh;
+      mesh.geometry?.dispose();
+      const mat = mesh.material;
+      if (mat) for (const m of Array.isArray(mat) ? mat : [mat]) m.dispose();
+    });
+    this.visual.removeFromParent();
   }
 
   /** Regrow the full armour (boss cycles). */

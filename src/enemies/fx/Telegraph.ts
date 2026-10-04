@@ -114,7 +114,10 @@ export class Telegraph extends Entity {
   }
 
   update(dt: number): void {
-    this.age += dt > 0 ? dt : 1 / 60;
+    // Game time only: during hit-stop the enemy's wind-up is frozen, so the decal must be too,
+    // or it flashes "impact" before the attack actually lands.
+    if (dt <= 0) return;
+    this.age += dt;
     const k = Math.min(1, this.age / this.dur);
 
     if (k < 1) {
