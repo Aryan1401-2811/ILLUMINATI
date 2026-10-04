@@ -67,6 +67,8 @@ export interface GameEvents {
   'settings:changed': { master: number; music: number; sfx: number; screenShake: boolean };
   /** Show a tutorial prompt like "Press SPACE to dodge". */
   'ui:prompt': { text: string; durationSec?: number };
+  /** Settings menu changed something (also saved to localStorage['falseDawn.settings']). */
+  'settings:changed': { master: number; music: number; sfx: number; screenShake: boolean };
 
   // ── Render & FX (owner: Visuals) ──────────────────────────────
   /** Switch world palette between gold (lie) and violet (truth). */
