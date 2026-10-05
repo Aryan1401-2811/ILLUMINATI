@@ -1,5 +1,6 @@
 import type { Element } from '@/combat/types';
 import { events } from './events';
+import { PLAYER } from './config';
 
 /**
  * Everything that must survive moving from one scene to the next during a playthrough
@@ -9,7 +10,7 @@ import { events } from './events';
  *   player.loadFromRun() / player.saveToRun()
  */
 export const runState = {
-  hp: 100,
+  hp: PLAYER.maxHp,
   energy: 0,
   loadout: [null, null, null] as (string | null)[],
   element: 'gold' as Element,
@@ -27,7 +28,7 @@ export const runState = {
 
   reset() {
     Object.assign(this, {
-      hp: 100,
+      hp: PLAYER.maxHp,
       energy: 0,
       loadout: [null, null, null],
       element: 'gold',
