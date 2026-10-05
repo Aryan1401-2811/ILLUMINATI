@@ -52,6 +52,7 @@ export class Warden extends Entity implements Hurtbox {
     coreWindowSec: WARDEN.armourWindowSec,
     element: 'gold', // the Narrator's chains
     size: 1.5,
+    regrows: true,
   });
   private velocity = new THREE.Vector3();
   private meshPivot = new THREE.Group();

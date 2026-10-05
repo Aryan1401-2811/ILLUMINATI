@@ -117,7 +117,7 @@ export const SCRIPT = {
     firstKill: [{ text: 'Got one! Did you see that little light? Lovely.' }],
     firstHeavy: [{ text: 'THAT\'S the finisher. Every third swing.' }],
     firstEnergy: [{ text: 'Ooh, warm. Use it often.' }],
-    firstShellBreak: [{ text: 'Cracked! Now — Light on the core, quick!' }],
+    firstShellBreak: [{ text: 'Cracked! Now — Light on the core!' }],
     hurt: [
       { text: 'Ow. Dodge, hero. SPACE.' },
       { text: 'Careful! I need you in one piece.' },
@@ -137,7 +137,7 @@ export const SCRIPT = {
     heal: 'F to heal: spend your Light to mend',
     energy: 'Q to fire Gold Bolt · E for Gold Burst',
     shell: 'Break the shell with a HEAVY hit, then hit the core with energy!',
-    core: 'Core exposed! Hit it with energy (Q) before the shell grows back',
+    core: 'Core exposed! Finish it with energy (Q)',
     exit: 'Walk to the glowing marker to continue',
   },
 

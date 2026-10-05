@@ -25,6 +25,7 @@ export interface ArmourConfig {
   coreWindowSec: number;
   element?: 'gold' | 'violet';
   size?: number;
+  regrows?: boolean; // default false
 }
 
 export class Armour {
@@ -191,14 +192,14 @@ export class Armour {
 
     if (this.state === 'exposed') {
       if (hit.kind === 'melee') {
-        // Melee bounces off exposed core
+        // Melee does 50% damage to the core
+        this.coreHp = Math.max(0, this.coreHp - (hit.amount * 0.5));
         this.damageFlash = 0.1;
-        events.emit('fx:onomatopoeia', { text: 'CLANG!', position: at.clone().setY(at.y + 0.5), color: '#ff9955' });
-        return 'deflected';
+      } else {
+        // Energy damages the core
+        this.coreHp = Math.max(0, this.coreHp - hit.amount);
+        this.damageFlash = 0.15;
       }
-      // Energy damages the core
-      this.coreHp = Math.max(0, this.coreHp - hit.amount);
-      this.damageFlash = 0.15;
 
       if (this.coreHp <= 0) {
         this.state = 'broken';
@@ -257,22 +258,27 @@ export class Armour {
       this.coreMesh.rotation.y += dt * 2;
       this.coreMesh.rotation.x += dt * 1.3;
 
-      // Timer ring shrinks
-      const timerFrac = Math.max(0, this.coreTimer / this.cfg.coreWindowSec);
-      this.timerMat.opacity = 0.7;
-      // Show the remaining arc by drawing only part of the full ring (6 indices per segment)
-      this.timerRing.geometry.setDrawRange(0, Math.ceil(TIMER_SEGMENTS * timerFrac) * 6);
-      // Flash red when almost out
-      if (timerFrac < 0.3) {
-        const flash = Math.sin(this.pulsePhase * 10) > 0;
-        this.timerMat.color.setHex(flash ? 0xff3333 : 0xff6b40);
-      }
+      // Timer ring shrinks if it regrows
+      if (this.cfg.regrows) {
+        const timerFrac = Math.max(0, this.coreTimer / this.cfg.coreWindowSec);
+        this.timerMat.opacity = 0.7;
+        // Show the remaining arc by drawing only part of the full ring (6 indices per segment)
+        this.timerRing.geometry.setDrawRange(0, Math.ceil(TIMER_SEGMENTS * timerFrac) * 6);
+        // Flash red when almost out
+        if (timerFrac < 0.3) {
+          const flash = Math.sin(this.pulsePhase * 10) > 0;
+          this.timerMat.color.setHex(flash ? 0xff3333 : 0xff6b40);
+        }
 
-      // Window expired → shell regrows
-      if (this.coreTimer <= 0) {
-        this.state = 'shell';
-        this.shellHp = this.shellMaxHp;
-        this.resetCracks();
+        // Window expired → shell regrows
+        if (this.coreTimer <= 0) {
+          this.state = 'shell';
+          this.shellHp = this.shellMaxHp;
+          this.resetCracks();
+        }
+      } else {
+        // Doesn't regrow, hide timer ring
+        this.timerMat.opacity = 0;
       }
     }
 

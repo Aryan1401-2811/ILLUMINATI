@@ -40,6 +40,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
     coreWindowSec: NARRATOR_BOSS.armourWindowSec,
     element: 'gold',
     size: 1.6,
+    regrows: true,
   });
   /** Counts down after a core breaks; the plates regrow at zero (phase 1 only). */
   private regrowIn = -1;
