@@ -16,6 +16,7 @@ Every third-party asset, library and AI tool used in **False Dawn**. Add a row *
 ## Audio
 
 All music and sound effects are synthesized in code at runtime with the Web Audio API (`src/audio/`). The game ships no audio files.
+Spoken dialogue uses the player's own browser/OS text-to-speech voices through the Web Speech API (`src/audio/voice.ts`); no voice recordings or AI voice files are included.
 
 | Asset | Author | Source | License | Used for |
 |---|---|---|---|---|
