@@ -19,6 +19,10 @@ export const NARRATOR = {
   holdPerChar: 0.05,
   /** When more lines are waiting, a finished line only holds this long. */
   queuedHoldSec: 1.1,
+  /** A finished line waits up to this much longer while its voice is still speaking. */
+  voiceGraceSec: 2.5,
+  /** ...but only this much when more lines are waiting, so cutscene dialogue never drifts far behind. */
+  voiceGraceQueuedSec: 1.0,
   maxQueue: 5,
 
   /** Growth thresholds where the typography gets louder (tier 1, 2, 3). */
