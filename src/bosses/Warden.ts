@@ -46,14 +46,21 @@ export class Warden extends Entity implements Hurtbox {
   stateTime = 0;
   armourCycle = 1;
 
-  readonly armour = new Armour('warden', {
-    shellHp: WARDEN.armourShellHp,
-    coreHp: WARDEN.armourCoreHp,
-    coreWindowSec: WARDEN.armourWindowSec,
-    element: 'gold', // the Narrator's chains
-    size: 1.5,
-    regrows: true,
-  });
+  /** Mutable: disposed and re-created on each stage change (R2 rule: no regrow inside a stage). */
+  armour = this.createArmour();
+
+  private createArmour(): Armour {
+    const a = new Armour('warden', {
+      shellHp: WARDEN.armourShellHp,
+      coreHp: WARDEN.armourCoreHp,
+      coreWindowSec: Infinity, // R2: core stays open forever (no timer regrow)
+      element: 'gold',
+      size: 1.5,
+      regrows: false,           // R2: armour never regrows inside a stage
+    });
+    this.object.add(a.visual);
+    return a;
+  }
   private velocity = new THREE.Vector3();
   private meshPivot = new THREE.Group();
   private placeholder = new THREE.Group();
@@ -79,7 +86,7 @@ export class Warden extends Entity implements Hurtbox {
 
     this.placeholder.add(bodyMesh, this.shieldMesh);
     this.meshPivot.add(this.placeholder);
-    this.object.add(this.meshPivot, this.armour.visual);
+    this.object.add(this.meshPivot);
   }
 
   /**
@@ -88,6 +95,7 @@ export class Warden extends Entity implements Hurtbox {
    * regrows, the bar refills to match.
    */
   get hp(): number {
+    if (this.armourCycle > 2 || this.state === 'defeated') return 0;
     const perCycle = this.maxHp / 2;
     const cyclesAfterThis = 2 - this.armourCycle;
     const thisCycle = 0.4 * this.armour.shellFraction + 0.6 * this.armour.coreFraction;
@@ -161,6 +169,11 @@ export class Warden extends Entity implements Hurtbox {
     return result;
   }
 
+  /**
+   * R2 stage-change logic:
+   *  Stage 1 core broken → kneel (stagger), then stand up with brand-new armour.
+   *  Stage 2 core broken → defeated.
+   */
   private endCycle() {
     if (this.armourCycle === 1) {
       this.setState('kneel');
@@ -169,6 +182,20 @@ export class Warden extends Entity implements Hurtbox {
       this.setState('defeated');
       events.emit('boss:defeated', { bossId: 'warden' });
     }
+  }
+
+  /** Replace the old armour with a fresh set for the next stage. */
+  private advanceStage() {
+    this.armourCycle = 2;
+    this.armour.dispose();
+    this.armour = this.createArmour();
+    events.emit('narrator:say', { text: 'SHIELD UP!', speaker: 'warden', durationSec: 2 });
+    events.emit('fx:onomatopoeia', {
+      text: 'CLANG!',
+      position: this.position.clone().setY(this.height * 0.5),
+      color: '#ffc21a',
+      scale: 1.4,
+    });
   }
 
   update(dt: number) {
@@ -196,7 +223,7 @@ export class Warden extends Entity implements Hurtbox {
     switch (this.state) {
       case 'idle':
         this.velocity.multiplyScalar(0.8);
-        if (this.stateTime > 1.2) this.decideNextAction(dist);
+        if (this.stateTime > WARDEN.minAttackGap) this.decideNextAction(dist);
         break;
 
       case 'defend':
@@ -283,14 +310,16 @@ export class Warden extends Entity implements Hurtbox {
 
       case 'kneel':
         this.velocity.set(0, 0, 0);
-        if (this.stateTime > 4) {
-          // Enter Cycle 2
-          this.armourCycle = 2;
-          this.armour.reset();
-          this.placeholder.rotation.x = 0;
-          this.model?.play(ANIM.stand, { loop: false, fade: 0.15 });
-          this.setState('idle');
-          this.emitHealth();
+        if (this.stateTime > WARDEN.staggerSec) {
+          if (this.armourCycle === 1) {
+            // Stage transition: stand up with a brand-new shield
+            this.advanceStage();
+            this.placeholder.rotation.x = 0;
+            this.model?.play(ANIM.stand, { loop: false, fade: 0.15 });
+            this.setState('idle');
+            this.emitHealth();
+          }
+          // If armourCycle === 2, he's defeated — endCycle already handled it.
         }
         break;
 
@@ -333,19 +362,22 @@ export class Warden extends Entity implements Hurtbox {
       case 'return':
         m?.play(ANIM.walk);
         break;
-      case 'bashWindup':
+      case 'bashWindup': {
         m?.play(ANIM.bashWindup, { loop: false, fade: 0.1 });
         if (!poseOnly) {
+          // R2 Task 3: use the live forward direction for the telegraph yaw
+          const dir = this.forward;
           this.scene.add(new Telegraph({
             shape: 'cone',
             at: this.position.clone(),
             radius: 3.5,
-            yaw: this.object.rotation.y,
+            yaw: Math.atan2(dir.x, dir.z),
             arcDeg: 90,
             durationSec: WARDEN.bashWindup,
             color: '#ffc21a',
           }));
         }
+      }
         break;
       case 'bashing':
         m?.play(ANIM.bash, { loop: false, restart: true, fade: 0.05 });
@@ -410,6 +442,19 @@ export class Warden extends Entity implements Hurtbox {
 
   private emitHealth() {
     events.emit('boss:health', { bossId: 'warden', name: 'THE WARDEN', hp: this.hp, max: this.maxHp, phase: this.armourCycle });
+  }
+
+  /** Called by the scene's flow:skip handler to instantly end the fight. */
+  forceDefeat() {
+    if (this.state === 'defeated') return;
+    this.armour.dispose();
+    this.armourCycle = 3; // forces HP to 0
+    this.setState('defeated');
+    // Emulate the core shattering for the death effects
+    events.emit('fx:shake', { strength: 0.4 });
+    events.emit('fx:onomatopoeia', { text: 'SHATTER!', position: this.position.clone().setY(this.position.y + 0.8), color: '#ffaa33', scale: 1.5 });
+    this.emitHealth();
+    // Do NOT emit boss:defeated — the scene already handles the transition.
   }
 
   onRemoved() {

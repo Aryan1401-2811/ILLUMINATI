@@ -1,20 +1,21 @@
 export const WARDEN = {
-  maxHp: 300,
+  maxHp: 240,                  // R2: 300 → 240 (favour the hero)
   radius: 0.9,
   height: 2.6,
   mass: 10,                    // bosses are heavy, don't get pushed
   moveSpeed: 2.5,              // slow, deliberate
-  shieldBashDamage: 15,
+  shieldBashDamage: 10,        // R2: 15 → 10
   shieldBashKnockback: 12,
-  groundPoundDamage: 10,
+  groundPoundDamage: 8,        // R2: 10 → 8
   groundPoundKnockback: 15,
   groundPoundRadius: 4,
-  bashWindup: 0.7,             // telegraph duration
-  poundWindup: 0.8,
+  bashWindup: 0.875,           // R2: 0.7 → +25% (more time to read telegraph)
+  poundWindup: 1.0,            // R2: 0.8 → +25%
   attackCooldown: 4,           // rarely attacks
+  minAttackGap: 1.2,           // R2: no two attacks chain without ≥1.2 s gap
   armourShellHp: 80,
   armourCoreHp: 60,
-  armourWindowSec: 4.5,        // how long the core stays open before the shell regrows
+  staggerSec: 2.5,             // how long the Warden kneels between stages
   homeLeash: 2.5,              // he drifts back to his post instead of chasing (clue: he never chases)
   model: 'models/bosses/warden.glb',
   modelHeight: 3.2,
@@ -26,14 +27,13 @@ export const WARDEN = {
 };
 
 export const NARRATOR_BOSS = {
-  maxHp: 400,
+  maxHp: 320,                  // R2: 400 → 320 (favour the hero)
   phase2HpThreshold: 0.5,     // switch at 50% hp
   // Phase 1 gold armour: melee cracks the plates, then the Lance hits the core.
-  // Only core hits cost him health; a broken core regrows after a short beat.
-  armourShellHp: 120,
-  armourCoreHp: 100,
+  // Armour no longer regrows inside a stage (R2 rule).
+  armourShellHp: 90,           // R2: 120 → 90
+  armourCoreHp: 70,            // R2: 100 → 70
   armourWindowSec: 5,
-  armourRegrowSec: 1.5,
   phase2RoarSec: 1.5,          // invulnerable roar on the phase change
   model: 'models/bosses/narrator.glb',
   modelHeight: 2.9,

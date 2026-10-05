@@ -33,17 +33,16 @@ export class NarratorBoss extends Entity implements Hurtbox {
   maxHp = NARRATOR_BOSS.maxHp;
   phase = 1;
 
-  /** Phase 1: stolen gold plates. Crack them with melee, then Lance the core. */
+  /** Phase 1: stolen gold plates. Crack them with melee, then Lance the core.
+   *  R2 rule: armour never regrows inside a stage; plates stay broken until phase 2. */
   private armour: Armour | null = new Armour('narrator', {
     shellHp: NARRATOR_BOSS.armourShellHp,
     coreHp: NARRATOR_BOSS.armourCoreHp,
-    coreWindowSec: NARRATOR_BOSS.armourWindowSec,
+    coreWindowSec: Infinity,   // R2: core stays open forever once shell is broken
     element: 'gold',
     size: 1.6,
-    regrows: true,
+    regrows: false,             // R2: armour never regrows inside a stage
   });
-  /** Counts down after a core breaks; the plates regrow at zero (phase 1 only). */
-  private regrowIn = -1;
   /** Phase 2: the stolen souls orbit him as shields. */
   private orbs: SoulOrb[] = [];
   private invulnLeft = 0;
@@ -125,11 +124,16 @@ export class NarratorBoss extends Entity implements Hurtbox {
     let result: HitResult;
     if (this.phase === 1) {
       const at = this.position.clone().setY(this.height * 0.6);
-      result = this.armour?.handleHit(hit, at) ?? 'immune';
-      // Only the core costs him health; cracking plates just opens him up
-      if (result === 'coreHit') this.hp = Math.max(this.maxHp * NARRATOR_BOSS.phase2HpThreshold, this.hp - hit.amount);
-      if (result === 'shellBroken') events.emit('fx:shake', { strength: 0.3 });
-      if (this.armour?.state === 'broken' && this.regrowIn < 0) this.regrowIn = NARRATOR_BOSS.armourRegrowSec;
+      const res = this.armour?.handleHit(hit, at);
+      if (res == null) {
+        // plates gone: he takes normal damage until phase 2
+        this.hp = Math.max(this.maxHp * NARRATOR_BOSS.phase2HpThreshold, this.hp - hit.amount);
+        result = 'damaged';
+      } else {
+        result = res;
+        if (result === 'coreHit') this.hp = Math.max(this.maxHp * NARRATOR_BOSS.phase2HpThreshold, this.hp - hit.amount);
+        if (result === 'shellBroken') events.emit('fx:shake', { strength: 0.3 });
+      }
     } else if (this.orbs.some((o) => o.alive)) {
       // The souls he wears shield him: free them first
       events.emit('fx:onomatopoeia', { text: 'SHIELDED!', position: this.position.clone().setY(3), color: '#c9b2ff', scale: 0.8 });
@@ -164,12 +168,6 @@ export class NarratorBoss extends Entity implements Hurtbox {
     this.attackTimer -= dt;
     this.invulnLeft = Math.max(0, this.invulnLeft - dt);
     this.armour?.update(dt);
-
-    // A broken core regrows fresh plates after a beat (phase 1 keeps cycling until 50%)
-    if (this.regrowIn >= 0) {
-      this.regrowIn -= dt;
-      if (this.regrowIn < 0) this.armour?.reset();
-    }
 
     // Second, smaller shockwave of the gold burst (game time, so it respects hit-stop/pause)
     if (this.pendingEcho >= 0) {
@@ -334,8 +332,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
 
   private enterPhase2() {
     this.phase = 2;
-    // The gold plates fall away: the souls are his armour now
-    this.regrowIn = -1;
+    // The gold plates fall away: the souls are his armour now (R2: no regrow needed)
     this.armour?.dispose();
     this.armour = null;
 
@@ -358,6 +355,17 @@ export class NarratorBoss extends Entity implements Hurtbox {
 
   private emitHealth() {
     events.emit('boss:health', { bossId: 'narrator', name: 'THE NARRATOR', hp: this.hp, max: this.maxHp, phase: this.phase });
+  }
+
+  /** Called by the scene's flow:skip handler to instantly end the fight. */
+  forceDefeat() {
+    if (this.hp <= 0) return;
+    this.hp = 0;
+    this.armour?.dispose();
+    this.armour = null;
+    this.model?.play(ANIM.death, { loop: false, fade: 0.2 });
+    events.emit('boss:defeated', { bossId: 'narrator' });
+    this.emitHealth();
   }
 
   onRemoved() {

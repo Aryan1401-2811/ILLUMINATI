@@ -36,18 +36,30 @@ class WardenScene extends GameScene {
       seq.unlockPlayer();
     })();
     
+    // ── Normal defeat path (shared by real kill and skip) ──────────────
+    const triggerDefeat = () => {
+      events.emit('story:beat', { id: 'warden:defeated' });
+      console.log("Warden defeated! Transitioning to twist sequence...");
+      runTwist(this, player, warden);
+    };
+
+    let defeated = false;
     this.listen(events.on('boss:defeated', ({ bossId }) => {
-      if (bossId === 'warden') {
-        events.emit('story:beat', { id: 'warden:defeated' });
-        console.log("Warden defeated! Transitioning to twist sequence...");
-        runTwist(this, player, warden);
+      if (bossId === 'warden' && !defeated) {
+        defeated = true;
+        triggerDefeat();
       }
     }));
-    
-    // Player death handling
-    this.listen(events.on('player:died', () => {
-      setTimeout(() => player.revive(layout.playerSpawn.clone()), 2000);
+
+    // ── R2 Task 4: SKIP support ───────────────────────────────────────
+    this.listen(events.on('flow:skip', ({ sceneId }) => {
+      if (sceneId !== 'warden' || defeated) return;
+      defeated = true;
+      // Force the Warden through the normal defeat path so music/story beats fire
+      warden.forceDefeat();
+      triggerDefeat();
     }));
+    
   }
 }
 
