@@ -85,13 +85,14 @@ export function buildSettingsPanel(onBack: () => void): HTMLElement {
     ${slider('music', 'Music')}
     ${slider('sfx', 'Sound effects')}
     <label class="setting"><span>Screen shake</span><input type="checkbox" data-key="screenShake" ${settings.screenShake ? 'checked' : ''}><b></b></label>
+    <label class="setting"><span>Voice</span><input type="checkbox" data-key="voice" ${settings.voice ? 'checked' : ''}><b></b></label>
     <p style="text-align:center;margin:14px 0 0"><button class="comic-btn" data-back>BACK</button></p>
   `;
   panel.addEventListener('input', (e) => {
     const input = e.target as HTMLInputElement;
-    const key = input.dataset.key as 'master' | 'music' | 'sfx' | 'screenShake' | undefined;
+    const key = input.dataset.key as 'master' | 'music' | 'sfx' | 'screenShake' | 'voice' | undefined;
     if (!key) return;
-    if (key === 'screenShake') updateSettings({ screenShake: input.checked });
+    if (key === 'screenShake' || key === 'voice') updateSettings({ [key]: input.checked });
     else {
       updateSettings({ [key]: Number(input.value) / 100 });
       input.nextElementSibling!.textContent = input.value;
