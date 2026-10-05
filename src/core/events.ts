@@ -50,7 +50,11 @@ export interface GameEvents {
 
   // ── Bosses & story (owner: Bosses) ────────────────────────────
   /** Boss health for the HUD boss bar. */
-  'boss:health': { bossId: string; name: string; hp: number; max: number; phase: number };
+  'boss:health': {
+    bossId: string; name: string; hp: number; max: number; phase: number;
+    /** Souls still shielding the boss (Narrator phase 2). */
+    shield?: { left: number; total: number };
+  };
   /** Boss defeated. */
   'boss:defeated': { bossId: string };
   /** A story beat happened. Narrative/audio/render react to these ids. */

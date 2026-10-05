@@ -144,11 +144,18 @@ export class Hud {
       this.promptTimer = durationSec ?? 3;
     });
 
-    events.on('boss:health', ({ name, hp, max, phase }) => {
+    events.on('boss:health', ({ name, hp, max, phase, shield }) => {
       this.boss.classList.remove('hidden');
       this.bossHideIn = -1;
       this.bossName.textContent = name;
-      this.bossPhase.textContent = phase > 1 ? `PHASE ${phase}` : '';
+      const shielded = !!shield && shield.left > 0;
+      this.boss.classList.toggle('shielded', shielded);
+      if (shielded) {
+        const pips = Array.from({ length: shield!.total }, (_, i) => `<i class="${i < shield!.left ? 'on' : ''}"></i>`).join('');
+        this.bossPhase.innerHTML = `<span class="shield-label">SOUL SHIELD</span><span class="shield-pips">${pips}</span><span class="shield-hint">strike the orbs to free them</span>`;
+      } else {
+        this.bossPhase.textContent = phase > 1 ? `PHASE ${phase}` : '';
+      }
       this.bossHp = Math.max(0, hp / max);
       this.bossFill.style.width = `${this.bossHp * 100}%`;
     });

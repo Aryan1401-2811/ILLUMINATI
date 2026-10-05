@@ -658,7 +658,7 @@ export class Player extends Entity implements Hurtbox {
     const targets = this.scene.combat.queryArc(this.position, fwd, s.range, s.arcDeg, 'player');
     for (const target of targets) {
       const result = this.scene.combat.applyHit(target, {
-        amount: s.damage,
+        amount: this.element === 'violet' ? s.violetDamage : s.damage,
         kind: 'melee',
         element: this.element,
         heavy: s.heavy,

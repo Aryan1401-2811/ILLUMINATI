@@ -14,7 +14,7 @@ import { disposeBossVisuals, markSharedGeometry } from './dispose';
 
 type WardenState =
   | 'idle' | 'defend' | 'sidestep' | 'return'
-  | 'bashWindup' | 'bashing' | 'poundWindup' | 'pounding'
+  | 'bashWindup' | 'bashing' | 'poundWindup' | 'pounding' | 'chargeWindup' | 'charging'
   | 'recover' | 'kneel' | 'defeated';
 
 /** Clip names from public/models/MODELS.md. */
@@ -68,6 +68,10 @@ export class Warden extends Entity implements Hurtbox {
   private shieldMesh: THREE.Mesh;
   private model: CharacterModel | null = null;
   private attackCooldown = 0;
+  /** Wind-up of the bash in progress (a riposte after a block is quicker). */
+  private bashWindupSec = WARDEN.bashWindup;
+  private chargeDir = new THREE.Vector3();
+  private chargeHit = false;
   /** His post. He drifts back to it instead of chasing (story clue). */
   private home: THREE.Vector3 | null = null;
 
@@ -141,12 +145,25 @@ export class Warden extends Entity implements Hurtbox {
   receiveHit(hit: Hit): HitResult {
     if (!this.alive || this.state === 'kneel') return 'immune';
 
-    // Shield blocks frontal attacks while defending (only while his shell is up)
-    if (this.state === 'defend' && this.armour.state === 'shell') {
+    // His tower shield blocks anything from the front while he defends, armour or not.
+    // A heavy finisher smashes the guard aside instead; a blocked hit may get punished.
+    if (this.state === 'defend') {
       _v.copy(hit.from).sub(this.position).setY(0).normalize();
       if (_v.dot(this.forward) > 0.3) {
-        this.model?.play(ANIM.blockHit, { loop: false, restart: true, fade: 0.05 });
-        return 'blocked';
+        if (hit.kind === 'melee' && hit.heavy) {
+          this.setState('recover');
+          this.stateTime = 1.5 - WARDEN.guardBreakStunSec; // recover lasts 1.5 s; this is the stun
+          events.emit('fx:onomatopoeia', { text: 'GUARD BREAK!', position: this.position.clone().setY(this.height), color: '#ffc21a', scale: 1.2 });
+          events.emit('fx:shake', { strength: 0.3 });
+        } else {
+          this.model?.play(ANIM.blockHit, { loop: false, restart: true, fade: 0.05 });
+          events.emit('fx:onomatopoeia', { text: 'BLOCKED', position: this.position.clone().setY(this.height), color: '#ffe9a8', scale: 0.8 });
+          if (Math.random() < WARDEN.riposteChance) {
+            this.bashWindupSec = WARDEN.riposteWindup;
+            this.setState('bashWindup');
+          }
+          return 'blocked';
+        }
       }
     }
 
@@ -229,8 +246,40 @@ export class Warden extends Entity implements Hurtbox {
 
       case 'defend':
         this.velocity.multiplyScalar(0.8);
-        if (this.stateTime > 2.5) this.setState('idle');
+        if (this.stateTime > WARDEN.defendSec) this.setState('idle');
         break;
+
+      case 'chargeWindup':
+        this.velocity.set(0, 0, 0);
+        if (this.stateTime >= WARDEN.chargeWindup) {
+          this.chargeHit = false;
+          this.setState('charging');
+        }
+        break;
+
+      case 'charging': {
+        this.velocity.copy(this.chargeDir).multiplyScalar(WARDEN.chargeSpeed);
+        if (!this.chargeHit) {
+          for (const h of this.scene.combat.queryArc(this.position, this.chargeDir, this.radius + 0.7, 140, 'enemy')) {
+            this.chargeHit = true;
+            this.scene.combat.applyHit(h, {
+              amount: WARDEN.chargeDamage,
+              kind: 'melee',
+              element: 'none',
+              heavy: true,
+              team: 'enemy',
+              from: this.position.clone(),
+              knockback: WARDEN.chargeKnockback,
+              sourceId: 'wardenCharge',
+            });
+          }
+        }
+        if (this.stateTime >= WARDEN.chargeRange / WARDEN.chargeSpeed || this.chargeHit) {
+          this.velocity.multiplyScalar(0.3);
+          this.setState('recover');
+        }
+        break;
+      }
 
       case 'sidestep': {
         const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
@@ -253,7 +302,7 @@ export class Warden extends Entity implements Hurtbox {
       case 'bashWindup':
         // Facing is locked to the cone he telegraphed, so the bash lands where it was shown
         this.velocity.multiplyScalar(0.5);
-        if (this.stateTime >= WARDEN.bashWindup) {
+        if (this.stateTime >= this.bashWindupSec) {
           this.setState('bashing');
           const hits = this.scene.combat.queryArc(this.position, this.forward, 3.5, 90, 'enemy');
           for (const h of hits) {
@@ -330,7 +379,7 @@ export class Warden extends Entity implements Hurtbox {
     }
 
     // Face player slowly (not while kneeling, fallen, or committed to a telegraphed bash)
-    if (this.state !== 'kneel' && this.state !== 'defeated' && this.state !== 'bashWindup' && this.state !== 'bashing') {
+    if (!['kneel', 'defeated', 'bashWindup', 'bashing', 'chargeWindup', 'charging'].includes(this.state)) {
       const targetAngle = Math.atan2(fwd.x, fwd.z);
       const cur = this.object.rotation.y;
       let diff = targetAngle - cur;
@@ -374,7 +423,7 @@ export class Warden extends Entity implements Hurtbox {
             radius: 3.5,
             yaw: Math.atan2(dir.x, dir.z),
             arcDeg: 90,
-            durationSec: WARDEN.bashWindup,
+            durationSec: this.bashWindupSec,
             color: '#ffc21a',
           }));
         }
@@ -382,6 +431,30 @@ export class Warden extends Entity implements Hurtbox {
         break;
       case 'bashing':
         m?.play(ANIM.bash, { loop: false, restart: true, fade: 0.05 });
+        this.bashWindupSec = WARDEN.bashWindup;
+        break;
+      case 'chargeWindup': {
+        m?.play(ANIM.bashWindup, { loop: false, fade: 0.1 });
+        if (!poseOnly) {
+          const target = this.findPlayer();
+          if (target) this.chargeDir.copy(target.position).sub(this.position).setY(0).normalize();
+          else this.chargeDir.copy(this.forward);
+          this.object.rotation.y = Math.atan2(this.chargeDir.x, this.chargeDir.z);
+          this.scene.add(new Telegraph({
+            shape: 'line',
+            at: this.position.clone(),
+            length: WARDEN.chargeRange,
+            width: WARDEN.chargeWidth,
+            yaw: this.object.rotation.y,
+            durationSec: WARDEN.chargeWindup,
+            color: '#ffc21a',
+          }));
+        }
+        break;
+      }
+      case 'charging':
+        m?.play(ANIM.walk, { timeScale: 2.5 });
+        events.emit('fx:onomatopoeia', { text: 'CHARGE!', position: this.position.clone().setY(this.height), color: '#ffc21a' });
         break;
       case 'poundWindup':
         m?.play(ANIM.pound, { loop: false, restart: true, fade: 0.1 });
@@ -409,16 +482,19 @@ export class Warden extends Entity implements Hurtbox {
     }
   }
 
+  private findPlayer(): Hurtbox | null {
+    for (const t of this.scene.combat.targets('enemy')) if (t.team === 'player') return t;
+    return null;
+  }
+
   private decideNextAction(dist: number) {
     if (this.attackCooldown <= 0) {
-      const r = Math.random();
-      if (r < WARDEN.poundChance) {
-        this.attackCooldown = WARDEN.attackCooldown;
-        this.setState('poundWindup');
-        return;
-      } else if (r < WARDEN.poundChance + WARDEN.bashChance && dist < 5) {
-        this.attackCooldown = WARDEN.attackCooldown;
-        this.setState('bashWindup');
+      // Close: bash or pound. Kept at a distance: he charges you down.
+      const next: WardenState =
+        dist < 4.5 ? (Math.random() < 0.6 ? 'bashWindup' : 'poundWindup') : dist < WARDEN.chargeRange + 1.5 ? 'chargeWindup' : 'defend';
+      if (next !== 'defend') {
+        this.attackCooldown = WARDEN.attackCooldown * (this.armourCycle === 2 ? WARDEN.stage2CooldownMul : 1);
+        this.setState(next);
         return;
       }
     }
