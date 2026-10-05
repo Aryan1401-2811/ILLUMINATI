@@ -10,10 +10,12 @@ import './guide'; // tutorial prompts + narrator reactions listen from the start
 const CONTROLS = [
   ['WASD', 'Move'],
   ['Left mouse', '3-hit combo (3rd hit is a HEAVY finisher)'],
+  ['Right mouse (hold)', 'Guard: block hits from the front'],
   ['Space', 'Dodge'],
-  ['Q / right mouse', 'Ability 1'],
+  ['Q', 'Ability 1'],
   ['E', 'Ability 2'],
   ['R', 'Ability 3'],
+  ['F', 'Heal: spend Light to restore health'],
   ['Esc', 'Pause'],
   ['Enter', 'Skip dialogue'],
 ];
