@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Entity } from '@/core/Entity';
 import { events } from '@/core/events';
 import { NARRATOR_BOSS } from './config';
+import { SCRIPT } from '@/narrative/script';
 import { Armour } from '@/enemies/armour/Armour';
 import { CharacterModel } from '@/render/CharacterModel';
 import { toonMaterial, addOutline } from '@/render/toon';
@@ -260,12 +261,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
 
   private fireGoldFan(dir: THREE.Vector3) {
     if (Math.random() > 0.6) {
-      const barks = [
-        'Bleed for my narrative!',
-        'Your pain is merely exposition!',
-        'Dance, puppet, dance!',
-        'Every wound is a word I write!',
-      ];
+      const barks = SCRIPT.final.taunts;
       events.emit('narrator:say', { text: barks[Math.floor(Math.random() * barks.length)], speaker: 'narrator', durationSec: 2 });
     }
 
@@ -294,12 +290,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
 
   private fireGoldBurst() {
     if (Math.random() > 0.5) {
-      const barks = [
-        'I AM THE AUTHOR!',
-        'OBEY THE SCRIPT!',
-        'KNEEL BEFORE THE INK!',
-        'YOU ARE NOTHING BUT DUST AND LETTERS!',
-      ];
+      const barks = SCRIPT.final.bigAttack;
       events.emit('narrator:say', { text: barks[Math.floor(Math.random() * barks.length)], speaker: 'narrator', durationSec: 2.5 });
     }
 
@@ -340,7 +331,7 @@ export class NarratorBoss extends Entity implements Hurtbox {
     this.invulnLeft = NARRATOR_BOSS.phase2RoarSec;
     events.emit('fx:hitstop', { durationSec: 0.2 });
     events.emit('story:beat', { id: 'final:phase2' });
-    events.emit('narrator:say', { text: 'Blasphemy! I am the architect of this reality! You cannot unwrite your creator!', speaker: 'narrator', durationSec: 4 });
+    events.emit('narrator:say', { text: SCRIPT.final.phase2, speaker: 'narrator', durationSec: 4 });
     events.emit('fx:shake', { strength: 0.8 });
     this.model?.play(ANIM.roar, { loop: false, restart: true, fade: 0.1 });
     this.model?.mixer.addEventListener('finished', this.backToFloat);

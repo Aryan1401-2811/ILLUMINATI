@@ -5,6 +5,7 @@ import type { PaletteMode } from '@/render/palette';
 import type { GameScene } from '@/core/GameScene';
 import { Player } from '@/player/Player';
 import { time } from '@/core/time';
+import { NARRATOR } from '@/narrative/config';
 
 /**
  * Cutscene scripting tool. Provides an async/await API so scripted sequences
@@ -95,8 +96,11 @@ export class Sequence {
    * If the player presses Enter (skip) and skipping is enabled, resolves early.
    */
   async say(text: string, durationSec = 2.5, speaker?: 'narrator' | 'warden' | 'hero'): Promise<void> {
-    events.emit('narrator:say', { text, speaker, durationSec });
-    await this.wait(durationSec);
+    // Never move on before an average reader has finished the line
+    const plain = text.replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1');
+    const sec = Math.max(durationSec, NARRATOR.readBaseSec + plain.length / NARRATOR.readCharsPerSec);
+    events.emit('narrator:say', { text, speaker, durationSec: sec });
+    await this.wait(sec);
   }
 
   // ── Timing ───────────────────────────────────────────────────────

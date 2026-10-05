@@ -6,8 +6,8 @@ export const NARRATOR = {
   wispTravelSec: 1.0,
 
   /** Typing speed. He talks faster as he grows: eager, hungry. */
-  charsPerSec: 38,
-  charsPerSecAtFull: 58,
+  charsPerSec: 24,
+  charsPerSecAtFull: 34,
   deleteCharsPerSec: 32,
   commaPauseSec: 0.12,
   stopPauseSec: 0.28,
@@ -15,14 +15,17 @@ export const NARRATOR = {
   glitchHoldSec: 0.45,
 
   /** How long a finished line stays readable. */
-  minHoldSec: 2.4,
-  holdPerChar: 0.05,
+  minHoldSec: 3,
+  holdPerChar: 0.06,
   /** When more lines are waiting, a finished line only holds this long. */
-  queuedHoldSec: 1.1,
-  /** A finished line waits up to this much longer while its voice is still speaking. */
-  voiceGraceSec: 2.5,
-  /** ...but only this much when more lines are waiting, so cutscene dialogue never drifts far behind. */
-  voiceGraceQueuedSec: 1.0,
+  queuedHoldSec: 1.8,
+  /** Scripted dialogue waits at least this long per line before the next one: time to read it. */
+  readCharsPerSec: 12,
+  readBaseSec: 1.2,
+  /** A finished line waits up to this much longer while its voice is still speaking (so no words get cut). */
+  voiceGraceSec: 8,
+  /** ...a little less when more lines are waiting. Reading-time pacing keeps this rare. */
+  voiceGraceQueuedSec: 6,
   maxQueue: 5,
 
   /** Growth thresholds where the typography gets louder (tier 1, 2, 3). */

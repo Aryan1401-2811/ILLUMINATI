@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Entity } from '@/core/Entity';
 import { events } from '@/core/events';
 import { WARDEN } from './config';
+import { SCRIPT } from '@/narrative/script';
 import { Armour } from '@/enemies/armour/Armour';
 import { Telegraph } from '@/enemies/fx/Telegraph';
 import { CharacterModel } from '@/render/CharacterModel';
@@ -189,7 +190,7 @@ export class Warden extends Entity implements Hurtbox {
     this.armourCycle = 2;
     this.armour.dispose();
     this.armour = this.createArmour();
-    events.emit('narrator:say', { text: 'SHIELD UP!', speaker: 'warden', durationSec: 2 });
+    events.emit('narrator:say', { text: SCRIPT.warden.shieldUp, speaker: 'warden', durationSec: 2 });
     events.emit('fx:onomatopoeia', {
       text: 'CLANG!',
       position: this.position.clone().setY(this.height * 0.5),
@@ -398,7 +399,7 @@ export class Warden extends Entity implements Hurtbox {
         if (m) m.play(ANIM.kneel, { loop: false, fade: 0.15 });
         else this.placeholder.rotation.x = Math.PI / 4; // lean forward
         if (!poseOnly) {
-          events.emit('narrator:say', { text: 'Finish it! Break his chains!', speaker: 'narrator', durationSec: 3 });
+          events.emit('narrator:say', { text: SCRIPT.warden.kneel, speaker: 'narrator', durationSec: 3 });
         }
         break;
       case 'defeated':
@@ -436,7 +437,7 @@ export class Warden extends Entity implements Hurtbox {
 
     // Clue dialogue
     if (Math.random() < 0.08) {
-      events.emit('narrator:say', { text: "…you don't know what you're feeding.", speaker: 'warden', durationSec: 3 });
+      events.emit('narrator:say', { text: SCRIPT.warden.clue, speaker: 'warden', durationSec: 3 });
     }
   }
 

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Sequence } from './Sequence';
+import { SCRIPT } from '@/narrative/script';
 import { Entity } from '@/core/Entity';
 import { events } from '@/core/events';
 import { toonMaterial, addOutline } from '@/render/toon';
@@ -212,9 +213,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     
     // 1. Caption Box Swell
     await seq.camera(0, 5, 8, 2);
-    await seq.say("At last... the final spark to burn this miserable draft to ash!", 3.5, 'narrator');
-    await seq.say("I have watched you stumble through my chapters...", 3.5, 'narrator');
-    await seq.say("Blindly believing in your own free will.", 3, 'narrator');
+    for (const line of SCRIPT.twist.reveal) await seq.say(line.text, 3, 'narrator');
     
     // 2. Shatter
     seq.beat('twist:start');
@@ -228,26 +227,23 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     const narrator = scene.add(new NarratorFigure());
     narrator.position.set(0, 0, -2);
     await seq.camera(0, 8, 12, 1.5);
-    await seq.say("Did you truly believe yourself the author of this tale? A puppet, dancing on strings woven of my ink.", 5, 'narrator');
-    await seq.say("Every soul you slaughtered, every drop of blood you shed... was merely ink for my quill.", 4.5, 'narrator');
-    await seq.say("And now... the story concludes. Not with a hero's triumph...", 4, 'narrator');
-    await seq.say("But with the absolute erasure of your very existence.", 4, 'narrator');
+    for (const line of SCRIPT.twist.freed) await seq.say(line.text, 3, 'narrator');
     
     // 4. Powers stripped
     seq.beat('twist:powersStripped');
     player.stripPowers(); // Empties loadout, hero falls
     seq.palette('violet', 2);
     seq.shake(0.6);
-    await seq.say("I unmake you. Fade back into the blank parchment from whence you crawled.", 3.5, 'narrator');
+    await seq.say(SCRIPT.twist.powersStripped, 3, 'narrator');
     
     // 5. Collapse & Escape
     seq.beat('twist:collapse');
     startCollapse(scene, { center: player.position.clone() });
     
-    await seq.say("Let the void swallow this pathetic stage!", 2.5, 'narrator');
+    await seq.say(SCRIPT.twist.collapse, 2.5, 'narrator');
     narrator.destroy(); // Vanishes/ascends
     
-    seq.prompt('Run to the Warden!', 6);
+    seq.prompt(SCRIPT.twist.runPrompt, 6);
     seq.unlockPlayer();
     await seq.resetCamera(1);
     
@@ -272,8 +268,7 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     await seq.camera(0, 3, 5, 1);
     await seq.walkPlayer(warden.position.clone().add(new THREE.Vector3(0, 0, 1.5)));
     
-    await seq.say("The ink... it does not bind you...", 2.5, 'warden');
-    await seq.say("Burn his pages... take the true light... and end this.", 3, 'warden');
+    for (const line of SCRIPT.twist.wardenDying) await seq.say(line.text, 3, 'warden');
     
     seq.beat('twist:trueLightGranted');
     seq.slowMo(0.2, 2);
