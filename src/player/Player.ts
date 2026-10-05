@@ -12,6 +12,13 @@ import { createAbility } from './abilities/registry';
 import { runState } from '@/core/runState';
 import { GuardShield } from './GuardShield';
 import { HealGlow } from './HealGlow';
+import { AimReticle } from './AimReticle';
+
+/** Aim assist: sloppy mouse aim still connects with an enemy roughly in front. */
+const ASSIST = {
+  melee: { range: 3.5, coneDeg: 60 },
+  cast: { range: 16, coneDeg: 25 },
+};
 
 /** Hero model + clip names. Swap these when the final hero model arrives. */
 interface HeroAnims {
@@ -143,6 +150,8 @@ export class Player extends Entity implements Hurtbox {
 
   onAdded() {
     this.own(this.scene.combat.register(this));
+    const reticle = this.scene.add(new AimReticle(this));
+    this.own(() => reticle.destroy());
     this.object.rotation.y = this.yaw;
     this.emitStats();
   }
@@ -346,6 +355,26 @@ export class Player extends Entity implements Hurtbox {
     this.aimDir.normalize();
   }
 
+  /** Snap aimDir onto the best enemy within `range` and `coneDeg` of it (closest to the aim line wins). */
+  private assistAim(range: number, coneDeg: number) {
+    const minCos = Math.cos(THREE.MathUtils.degToRad(coneDeg));
+    let best: Hurtbox | null = null;
+    let bestScore = -Infinity;
+    for (const h of this.scene.combat.targets(this.team)) {
+      _v.subVectors(h.position, this.position).setY(0);
+      const d = _v.length();
+      if (d < 1e-3 || d - h.radius > range) continue;
+      const cos = _v.dot(this.aimDir) / d;
+      if (cos < minCos) continue;
+      const score = cos * 2 - d / range;
+      if (score > bestScore) {
+        bestScore = score;
+        best = h;
+      }
+    }
+    if (best) this.aimDir.subVectors(best.position, this.position).setY(0).normalize();
+  }
+
   private updateMove(dt: number, speedFactor = 1) {
     input.moveVector(_move);
     // camera looks toward -Z, so screen-up is world -Z
@@ -389,6 +418,7 @@ export class Player extends Entity implements Hurtbox {
     const ability = this.abilities[slot];
     if (!ability || !ability.canCast(this)) return false;
     this.spendEnergy(ability.cost);
+    this.assistAim(ASSIST.cast.range, ASSIST.cast.coneDeg);
     this.yaw = Math.atan2(this.aimDir.x, this.aimDir.z);
     this.object.rotation.y = this.yaw;
     if (ability.channel) {
@@ -571,6 +601,7 @@ export class Player extends Entity implements Hurtbox {
     this.comboStep = step;
     this.comboQueued = false;
     this.attackHitDone = false;
+    this.assistAim(ASSIST.melee.range, ASSIST.melee.coneDeg);
     this.yaw = Math.atan2(this.aimDir.x, this.aimDir.z);
     this.setState('attack');
     const s = this.step;
