@@ -22,10 +22,10 @@ export const NARRATOR = {
   /** Scripted dialogue waits at least this long per line before the next one: time to read it. */
   readCharsPerSec: 12,
   readBaseSec: 1.2,
-  /** A finished line waits up to this much longer while its voice is still speaking. */
-  voiceGraceSec: 2.5,
-  /** ...but only this much when more lines are waiting, so cutscene dialogue never drifts far behind. */
-  voiceGraceQueuedSec: 1.0,
+  /** A finished line waits up to this much longer while its voice is still speaking (so no words get cut). */
+  voiceGraceSec: 8,
+  /** ...a little less when more lines are waiting. Reading-time pacing keeps this rare. */
+  voiceGraceQueuedSec: 6,
   maxQueue: 5,
 
   /** Growth thresholds where the typography gets louder (tier 1, 2, 3). */

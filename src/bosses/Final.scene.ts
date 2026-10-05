@@ -5,6 +5,7 @@ import { Player } from '@/player/Player';
 import { buildFinalArena } from '@/world/zones';
 import { loadGLTF } from '@/core/assets';
 import { NARRATOR_BOSS } from './config';
+import { SCRIPT } from '@/narrative/script';
 import { Sequence } from '@/sequences/Sequence';
 import { NarratorBoss } from './Narrator';
 import { souls } from './souls';
@@ -50,7 +51,7 @@ class FinalScene extends GameScene {
       
       endSeq.slowMo(0.15, 4);
       endSeq.shake(1.5);
-      events.emit('fx:onomatopoeia', { text: 'THE PAGES... THEY TEAR... I AM... ENDLESS—!', position: narrator.position.clone(), scale: 3 });
+      events.emit('fx:onomatopoeia', { text: SCRIPT.final.deathCry, position: narrator.position.clone(), scale: 3 });
       
       // Massive flash of light
       events.emit('palette:set', { mode: 'gold', durationSec: 0.1 });
@@ -61,7 +62,7 @@ class FinalScene extends GameScene {
       // Every remaining soul charge freed at once
       while(souls.charges < 5) souls.addCharge();
       
-      await endSeq.say("The final period is mine.", 4, 'hero');
+      await endSeq.say(SCRIPT.final.heroLastWord, 4, 'hero');
       
       endSeq.beat('final:defeated');
       narrator.destroy();

@@ -97,18 +97,33 @@ export function cancelVoice(): void {
   setSpeaking(false);
 }
 
+/** Chrome swallows the first words of an utterance queued right after cancel(); wait this long. */
+const AFTER_CANCEL_MS = 120;
+
 function speak(text: string, speaker: Speaker, windowSec: number) {
+  if (!synth) return;
+  // Only cut something that is still talking (the caption box normally waits for it to finish)
+  const busy = synth.speaking || synth.pending;
   cancelVoice();
   const voice = voices[speaker];
-  if (!synth || !voice || !settings.voice || audio.isMuted) return;
+  if (!voice || !settings.voice || audio.isMuted) return;
   const segs = segments(text);
   if (!segs.length) return;
+  // Counts as speaking from the moment it is queued, so the caption holds even before
+  // a network (neural) voice actually starts
+  setSpeaking(true);
+  const id = lineId;
+  if (busy) setTimeout(() => id === lineId && queue(segs, speaker, windowSec, id), AFTER_CANCEL_MS);
+  else queue(segs, speaker, windowSec, id);
+}
+
+function queue(segs: { text: string; wrong: boolean }[], speaker: Speaker, windowSec: number, id: number) {
+  const voice = voices[speaker]!;
 
   const d = delivery(speaker);
   const chars = segs.reduce((n, s) => n + s.text.length, 0);
   const rate = Math.min(d.maxRate, Math.max(d.rate, chars / CHARS_PER_SEC / windowSec));
   const volume = settings.master * settings.sfx;
-  const id = lineId;
 
   segs.forEach((s, i) => {
     const u = new SpeechSynthesisUtterance(s.text);
@@ -118,10 +133,11 @@ function speak(text: string, speaker: Speaker, windowSec: number) {
     // The wrong word comes out lower and slower: his real voice slipping through.
     u.pitch = s.wrong ? d.pitch * 0.75 : d.pitch;
     u.rate = s.wrong ? rate * 0.85 : rate;
-    if (i === 0) u.onstart = () => id === lineId && setSpeaking(true);
+    // A failed segment must not leave the caption box waiting forever
+    if (i < segs.length - 1) u.onerror = () => id === lineId && setSpeaking(false);
     if (i === segs.length - 1) u.onend = u.onerror = () => id === lineId && setSpeaking(false);
     live.push(u);
-    synth.speak(u);
+    synth!.speak(u);
   });
 }
 
