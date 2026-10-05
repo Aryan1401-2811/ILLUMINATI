@@ -2,11 +2,11 @@ import creditsMd from '../../CREDITS.md?raw';
 
 /** The people who made the game (shown first in the credits). Edit names/roles here. */
 export const TEAM: { name: string; role: string }[] = [
-  { name: 'Amey Patel', role: 'Foundation & Player · Narrative, UI & Audio' },
+  { name: 'Amey Patel', role: 'Framework & Main Harness · Game Flow · PR Reviews, Task Distribution & Team Alignment' },
+  { name: 'Aryan', role: 'Narrative & Script' },
   { name: 'Yagna Saradava', role: 'Enemies & Armour' },
   { name: 'Daksh Panchotiya', role: 'Bosses & the Twist' },
   { name: 'Nipun Jain', role: 'Visuals & World' },
-  { name: 'Aryan', role: 'Team' },
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
