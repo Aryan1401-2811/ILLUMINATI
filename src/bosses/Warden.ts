@@ -152,7 +152,7 @@ export class Warden extends Entity implements Hurtbox {
       if (_v.dot(this.forward) > 0.3) {
         if (hit.kind === 'melee' && hit.heavy) {
           this.setState('recover');
-          this.stateTime = 1.5 - WARDEN.guardBreakStunSec; // recover lasts 1.5 s; this is the stun
+          this.stateTime = WARDEN.recoverSec - WARDEN.guardBreakStunSec; // a longer recover = the stun
           events.emit('fx:onomatopoeia', { text: 'GUARD BREAK!', position: this.position.clone().setY(this.height), color: '#ffc21a', scale: 1.2 });
           events.emit('fx:shake', { strength: 0.3 });
         } else {
@@ -355,7 +355,7 @@ export class Warden extends Entity implements Hurtbox {
 
       case 'recover':
         this.velocity.multiplyScalar(0.8);
-        if (this.stateTime > 1.5) this.setState('idle');
+        if (this.stateTime > WARDEN.recoverSec) this.setState('idle');
         break;
 
       case 'kneel':
