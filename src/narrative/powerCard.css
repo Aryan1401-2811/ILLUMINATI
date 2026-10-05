@@ -1,0 +1,53 @@
+.power-card {
+  justify-content: center;
+  background: rgba(13, 10, 12, 0.55);
+  pointer-events: auto;
+  animation: power-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.power-card.closing { opacity: 0; transition: opacity 0.25s; }
+@keyframes power-in { from { opacity: 0; transform: scale(0.9) rotate(-2deg); } }
+
+.power-panel {
+  max-width: min(640px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  background: #f4ecff;
+  box-shadow: 8px 8px 0 #9b6bff, 8px 8px 0 5px #1a1013;
+  rotate: -1deg;
+}
+.power-panel h2 { color: #5b3fa8; font-size: 40px; text-align: center; margin-bottom: 4px; }
+.power-intro { text-align: center; font-style: italic; margin: 0 0 14px; }
+
+.power-list { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 10px; }
+.power-list li { display: flex; gap: 14px; align-items: flex-start; }
+.power-list kbd {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  font-family: 'Bangers', var(--font-body);
+  font-size: 26px;
+  background: #b48cff;
+  color: #1a1013;
+  border: 3px solid #1a1013;
+  box-shadow: 3px 3px 0 #1a1013;
+}
+.power-list b { display: block; font-family: 'Bangers', var(--font-body); font-size: 22px; letter-spacing: 0.04em; }
+.power-list span { font-size: 15px; line-height: 1.35; }
+
+.power-plan {
+  margin: 0 0 14px;
+  padding: 10px 14px 10px 30px;
+  background: #fffaf0;
+  border: 3px dashed #5b3fa8;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.power-go { text-align: center; margin: 0; }
+.power-go small { display: block; margin-top: 6px; opacity: 0.6; font-size: 12px; letter-spacing: 0.1em; }
+
+@media (max-width: 600px) {
+  .power-panel h2 { font-size: 30px; }
+  .power-list kbd { width: 34px; height: 34px; font-size: 20px; }
+}

@@ -177,6 +177,22 @@ export const SCRIPT = {
 
   /** The final boss fight (src/bosses/Narrator.ts, Final.scene.ts). */
   final: {
+    /** "New powers" panel shown before the fight starts. */
+    powers: {
+      title: 'THE TRUE LIGHT',
+      intro: 'The Warden\'s gift. Your gold is gone; these are yours now.',
+      abilities: [
+        { key: 'Q', name: 'Violet Lance', text: 'A piercing beam of true light. It hits everything in a line and hurts his exposed core.' },
+        { key: 'E', name: 'Radiant Guard', text: 'Hold to raise a violet ward. It swallows his gold shots and turns them into your Light.' },
+        { key: 'R', name: 'Soul Call', text: 'Each soul you free gives a charge. Spend one to send a spirit hunting him.' },
+      ],
+      plan: [
+        'Phase 1: crack his gold plates with your heavy finisher, then Lance the core.',
+        'Phase 2: the stolen souls shield him. Strike the orbs to free them, then hit him.',
+        'F still heals, RIGHT MOUSE still guards, SPACE still dodges.',
+      ],
+      start: 'END THIS STORY',
+    },
     taunts: ['Dance, puppet.', 'You\'re a footnote.', 'I wrote you. I can cut you.', 'Every wound is a word I write.'],
     bigAttack: ['I AM THE AUTHOR!', 'KNEEL TO THE INK!', 'THIS IS MY PAGE!', 'YOU ARE A MARGIN NOTE!'],
     phase2: 'You\'re spending their light against me? Mine! I earned every soul!',

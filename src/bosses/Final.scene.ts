@@ -6,6 +6,8 @@ import { buildFinalArena } from '@/world/zones';
 import { loadGLTF } from '@/core/assets';
 import { NARRATOR_BOSS } from './config';
 import { SCRIPT } from '@/narrative/script';
+import { showPowerCard } from '@/narrative/PowerCard';
+import { firstTime } from '@/narrative/guide';
 import { Sequence } from '@/sequences/Sequence';
 import { NarratorBoss } from './Narrator';
 import { souls } from './souls';
@@ -34,6 +36,9 @@ class FinalScene extends GameScene {
       await seq.lockPlayer();
       await seq.camera(0, 12, 16, 1.5);
       await seq.say('THE NARRATOR', 2, 'narrator'); // Name card presentation
+      // The new violet powers, explained before anything can hit you (once per run, not on retries)
+      if (firstTime('final:powers')) await showPowerCard();
+      if (this.game.current !== this) return;
       seq.beat('final:start');
       await seq.resetCamera(0.8);
       seq.unlockPlayer();

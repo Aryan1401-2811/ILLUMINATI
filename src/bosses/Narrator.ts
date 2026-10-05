@@ -11,6 +11,7 @@ import { isPositiveResult } from '@/combat/types';
 import { Projectile } from '@/combat/Projectile';
 import { Shockwave } from '@/vfx/Shockwave';
 import { SoulOrb } from './SoulOrb';
+import { SoulShield } from './SoulShield';
 import { disposeBossVisuals, markSharedGeometry } from './dispose';
 
 /** Clip names from public/models/MODELS.md. */
@@ -46,6 +47,10 @@ export class NarratorBoss extends Entity implements Hurtbox {
   });
   /** Phase 2: the stolen souls orbit him as shields. */
   private orbs: SoulOrb[] = [];
+  private shield: SoulShield | null = null;
+  /** Souls still holding the shield last frame, to refresh the boss bar when one is freed. */
+  private heldLast = -1;
+  private shieldedTextIn = 0;
   private invulnLeft = 0;
   private pendingEcho = -1;
 
@@ -137,7 +142,11 @@ export class NarratorBoss extends Entity implements Hurtbox {
       }
     } else if (this.orbs.some((o) => o.alive)) {
       // The souls he wears shield him: free them first
-      events.emit('fx:onomatopoeia', { text: 'SHIELDED!', position: this.position.clone().setY(3), color: '#c9b2ff', scale: 0.8 });
+      this.shield?.blocked();
+      if (this.shieldedTextIn <= 0) {
+        this.shieldedTextIn = 0.5;
+        events.emit('fx:onomatopoeia', { text: 'SHIELDED! FREE THE SOULS', position: this.position.clone().setY(3.4), color: '#c9b2ff', scale: 0.8 });
+      }
       result = 'blocked';
     } else {
       this.hp = Math.max(0, this.hp - hit.amount);
@@ -168,7 +177,15 @@ export class NarratorBoss extends Entity implements Hurtbox {
     this.t += dt;
     this.attackTimer -= dt;
     this.invulnLeft = Math.max(0, this.invulnLeft - dt);
+    this.shieldedTextIn -= dt;
     this.armour?.update(dt);
+    if (this.phase === 2) {
+      const held = this.orbs.filter((o) => o.alive).length;
+      if (held !== this.heldLast) {
+        this.heldLast = held;
+        this.emitHealth();
+      }
+    }
 
     // Second, smaller shockwave of the gold burst (game time, so it respects hit-stop/pause)
     if (this.pendingEcho >= 0) {
@@ -340,12 +357,15 @@ export class NarratorBoss extends Entity implements Hurtbox {
     for (let i = 0; i < orbCount; i++) {
       this.orbs.push(this.scene.add(new SoulOrb(this, i, orbCount)));
     }
+    this.shield = this.scene.add(new SoulShield(this, this.orbs));
+    this.emitHealth();
 
     this.attackTimer = 1.5;
   }
 
   private emitHealth() {
-    events.emit('boss:health', { bossId: 'narrator', name: 'THE NARRATOR', hp: this.hp, max: this.maxHp, phase: this.phase });
+    const shield = this.phase === 2 ? { left: this.orbs.filter((o) => o.alive).length, total: this.orbs.length } : undefined;
+    events.emit('boss:health', { bossId: 'narrator', name: 'THE NARRATOR', hp: this.hp, max: this.maxHp, phase: this.phase, shield });
   }
 
   /** Called by the scene's flow:skip handler to instantly end the fight. */

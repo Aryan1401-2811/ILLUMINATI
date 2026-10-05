@@ -35,6 +35,13 @@ export function prompt(key: keyof typeof SCRIPT.tutorial) {
   once(`prompt:${key}`, () => events.emit('ui:prompt', { text: SCRIPT.tutorial[key], durationSec: PROMPT_SEC }));
 }
 
+/** True the first time `key` is asked about in this run (any scene), false after that. */
+export function firstTime(key: string): boolean {
+  if (shown.has(key)) return false;
+  shown.add(key);
+  return true;
+}
+
 /** New game: everything can be shown again. */
 export function resetGuide() {
   shown = new Set();

@@ -208,6 +208,32 @@
 .hud[data-theme='violet'] .hud-meter.boss .fill { background: linear-gradient(#fff3b0, #ffc21a 50%, #b07e00); }
 .hud-boss-phase { font-size: 18px; color: #fffaf0; text-shadow: 2px 2px 0 var(--ink); min-height: 20px; }
 
+/* Narrator phase 2: the souls shield him. Violet glass over the bar + one pip per soul held. */
+.hud-boss.shielded .hud-meter.boss {
+  box-shadow: 0 0 0 3px #b48cff, 0 0 16px 4px rgba(180, 140, 255, 0.7);
+  animation: shield-shimmer 1.6s ease-in-out infinite;
+}
+.hud-boss.shielded .hud-meter.boss .fill { filter: saturate(0.4) brightness(0.8); }
+@keyframes shield-shimmer { 50% { box-shadow: 0 0 0 3px #e0c8ff, 0 0 24px 8px rgba(180, 140, 255, 0.9); } }
+.hud-boss.shielded .hud-boss-phase { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.shield-label {
+  font-size: 15px;
+  letter-spacing: 2px;
+  padding: 0 8px;
+  background: #5b3fa8;
+  border: 2px solid var(--ink);
+}
+.shield-pips { display: flex; gap: 4px; }
+.shield-pips i {
+  width: 14px;
+  height: 14px;
+  rotate: 45deg;
+  border: 2px solid var(--ink);
+  background: #3a2a5a;
+}
+.shield-pips i.on { background: #e0c8ff; box-shadow: 0 0 8px #b48cff; }
+.shield-hint { font-size: 13px; opacity: 0.85; }
+
 /* Low health: a pulsing red ink edge */
 .hud-vignette {
   position: absolute;

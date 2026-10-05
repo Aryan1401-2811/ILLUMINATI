@@ -307,6 +307,28 @@
   border-bottom: 0;
 }
 
+/* Name tabs: who is talking, pinned to the bubble's top-left corner. */
+.bubble-warden::before,
+.bubble-hero::before,
+.bubble-jagged::before {
+  position: absolute;
+  top: -15px;
+  left: 16px;
+  padding: 2px 10px 1px;
+  font-family: var(--font-display, var(--font-body));
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  border: 2px solid var(--ink, #1a1013);
+  box-shadow: 2px 2px 0 var(--ink, #1a1013);
+  rotate: -2deg;
+  z-index: 1;
+}
+.bubble-warden::before { content: 'THE WARDEN'; background: #5b3fa8; color: #fff; }
+.bubble-hero::before { content: 'THE HERO'; background: #b48cff; color: var(--ink, #1a1013); }
+.bubble-jagged::before { content: 'THE NARRATOR'; background: #ffc21a; color: var(--ink, #1a1013); }
+
 /* The hero: a plain paper caption (the last panel). */
 .bubble-hero {
   bottom: 18%;

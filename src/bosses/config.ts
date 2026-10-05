@@ -11,8 +11,21 @@ export const WARDEN = {
   groundPoundRadius: 4,
   bashWindup: 0.875,           // R2: 0.7 → +25% (more time to read telegraph)
   poundWindup: 1.0,            // R2: 0.8 → +25%
-  attackCooldown: 4,           // rarely attacks
+  attackCooldown: 2.4,         // a real boss: attacks whenever this is ready
+  stage2CooldownMul: 0.7,      // angrier after SHIELD UP!
   minAttackGap: 1.2,           // R2: no two attacks chain without ≥1.2 s gap
+  // Shield Charge: his answer to a hero who keeps away from him
+  chargeWindup: 0.9,
+  chargeSpeed: 13,
+  chargeRange: 9,
+  chargeWidth: 1.8,
+  chargeDamage: 10,
+  chargeKnockback: 10,
+  // Guard: blocks frontal hits; a heavy finisher breaks it, a blocked hit may be punished
+  defendSec: 1.6,
+  riposteChance: 0.6,
+  riposteWindup: 0.55,
+  guardBreakStunSec: 1.4,
   armourShellHp: 80,
   armourCoreHp: 60,
   staggerSec: 2.5,             // how long the Warden kneels between stages
@@ -21,9 +34,7 @@ export const WARDEN = {
   modelHeight: 3.2,
   retreatDist: 6,              // preferred distance from player
   // AI weights
-  shieldChance: 0.5,           // chance to raise shield vs sidestep
-  bashChance: 0.15,            // low aggression
-  poundChance: 0.1,
+  shieldChance: 0.6,           // between attacks: raise the shield vs sidestep
 };
 
 export const NARRATOR_BOSS = {
