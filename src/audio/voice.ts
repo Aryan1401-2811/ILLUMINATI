@@ -41,8 +41,11 @@ function pickVoices() {
   const en = synth!.getVoices().filter((v) => /^en/i.test(v.lang));
   if (!en.length) return;
   // Local voices start instantly and pause reliably; network voices are a fallback.
+  // Neural voices (Edge "… Online (Natural)", Chrome "Google …") sound human; the old local
+  // SAPI voices (David, Zira) sound robotic, so they are only the fallback.
+  const quality = (v: SpeechSynthesisVoice) => (/natural|neural/i.test(v.name) ? 8 : /google/i.test(v.name) ? 5 : v.localService ? 1 : 2);
   const rank = (v: SpeechSynthesisVoice, male: boolean, gb: boolean) =>
-    (MALE.test(v.name) === male ? 4 : 0) + (v.localService ? 2 : 0) + (gb && /en-GB/i.test(v.lang) ? 1 : 0);
+    quality(v) + (MALE.test(v.name) === male ? 4 : 0) + (gb && /en-GB/i.test(v.lang) ? 1 : 0);
   const best = (male: boolean, gb: boolean, avoid: (SpeechSynthesisVoice | null)[]) =>
     [...en].sort((a, b) => rank(b, male, gb) - rank(a, male, gb)).find((v) => !avoid.includes(v)) ?? en[0];
   voices.narrator = best(true, true, []);
@@ -51,11 +54,12 @@ function pickVoices() {
 }
 
 function delivery(speaker: Speaker): Delivery {
-  if (speaker === 'warden') return { pitch: 0.7, rate: 0.85, maxRate: 0.95 };
-  if (speaker === 'hero') return { pitch: 1, rate: 1, maxRate: 1.2 };
-  if (freed) return { pitch: 0.6, rate: 0.9, maxRate: 1.2 };
-  if (runState.narratorGrowth > HUNGRY_GROWTH) return { pitch: 1.15, rate: 1.15, maxRate: 1.6 };
-  return { pitch: 1.05, rate: 1, maxRate: 1.45 };
+  // Rates stay near natural speech: hurrying a TTS voice is what makes it sound robotic
+  if (speaker === 'warden') return { pitch: 0.8, rate: 0.85, maxRate: 0.92 };
+  if (speaker === 'hero') return { pitch: 1, rate: 0.95, maxRate: 1.05 };
+  if (freed) return { pitch: 0.75, rate: 0.88, maxRate: 0.98 };
+  if (runState.narratorGrowth > HUNGRY_GROWTH) return { pitch: 1.08, rate: 1.05, maxRate: 1.15 };
+  return { pitch: 1.0, rate: 0.95, maxRate: 1.08 };
 }
 
 const clean = (s: string) =>
