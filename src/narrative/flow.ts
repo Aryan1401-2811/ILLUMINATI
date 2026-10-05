@@ -67,8 +67,13 @@ export const SKIPPABLE = new Set<string>(['zone1', 'zone2', 'zone3', 'warden', '
 
 /** Skip the current fight. The scene listening for flow:skip does the actual work. */
 export function skip(): void {
-  const sceneId = getGame().currentId;
-  if (sceneId && SKIPPABLE.has(sceneId)) events.emit('flow:skip', { sceneId });
+  const game = getGame();
+  const sceneId = game.currentId;
+  if (!sceneId || !SKIPPABLE.has(sceneId)) return;
+  // Skipping from the death screen: the story carries on, so the hero must be alive for it
+  const player = game.current?.getFirst(Player);
+  if (player?.state === 'dead') player.revive();
+  events.emit('flow:skip', { sceneId });
 }
 
 /** Back to the checkpoint (the zone's current fight, or the scene's start). */
