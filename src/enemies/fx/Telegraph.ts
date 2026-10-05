@@ -76,9 +76,10 @@ export class Telegraph extends Entity {
     } else if (cfg.shape === 'cone') {
       const r = cfg.radius ?? 3;
       const arc = THREE.MathUtils.degToRad(cfg.arcDeg ?? 60);
-      fillGeo = new THREE.CircleGeometry(r, 24, -arc / 2, arc);
-      flashGeo = new THREE.CircleGeometry(r, 24, -arc / 2, arc);
-      borderGeo = new THREE.RingGeometry(r - 0.08, r, 24, 1, -arc / 2, arc);
+      const thetaStart = Math.PI / 2 - arc / 2;
+      fillGeo = new THREE.CircleGeometry(r, 24, thetaStart, arc);
+      flashGeo = new THREE.CircleGeometry(r, 24, thetaStart, arc);
+      borderGeo = new THREE.RingGeometry(r - 0.08, r, 24, 1, thetaStart, arc);
     } else {
       // Line shape: a rectangle
       const len = cfg.length ?? 6;
@@ -100,7 +101,7 @@ export class Telegraph extends Entity {
     this.borderMesh = new THREE.Mesh(borderGeo, this.borderMat);
 
     const pivot = new THREE.Group();
-    pivot.rotation.x = -Math.PI / 2; // lay flat on XZ
+    pivot.rotation.x = Math.PI / 2; // lay flat on XZ, with +Y mapping to +Z (forward)
     pivot.add(this.borderMesh, this.fillMesh, this.flashMesh);
 
     // Rotate the pivot around Y to aim the shape

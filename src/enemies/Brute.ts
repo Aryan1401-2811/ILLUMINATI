@@ -154,7 +154,7 @@ export class Brute extends Enemy {
         at: this.position.clone(),
         length: this.stats.chargeRange,
         width: this.stats.chargeWidth,
-        yaw: this.yaw,
+        yaw: Math.atan2(this.chargeDir.x, this.chargeDir.z),
         durationSec: this.stats.chargeWindupSec,
         color: '#8844ff',
       }));
