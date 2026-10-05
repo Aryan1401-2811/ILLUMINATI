@@ -53,7 +53,7 @@ export interface GameEvents {
   'boss:health': {
     bossId: string; name: string; hp: number; max: number; phase: number;
     /** Souls still shielding the boss (Narrator phase 2). */
-    shield?: { left: number; total: number };
+    shield?: { left: number; total: number; label?: string; hint?: string };
   };
   /** Boss defeated. */
   'boss:defeated': { bossId: string };

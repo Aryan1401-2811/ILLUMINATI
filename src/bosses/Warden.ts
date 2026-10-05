@@ -11,6 +11,8 @@ import type { Hit, HitResult, Hurtbox } from '@/combat/types';
 import { isPositiveResult } from '@/combat/types';
 import { Shockwave } from '@/vfx/Shockwave';
 import { disposeBossVisuals, markSharedGeometry } from './dispose';
+import { WardAnchor } from './WardAnchor';
+import { SoulShield } from './SoulShield';
 
 type WardenState =
   | 'idle' | 'defend' | 'sidestep' | 'return'
@@ -72,6 +74,11 @@ export class Warden extends Entity implements Hurtbox {
   private bashWindupSec = WARDEN.bashWindup;
   private chargeDir = new THREE.Vector3();
   private chargeHit = false;
+  /** Stage 2 Chain Ward: anchors holding it, its dome, and change tracking for the boss bar. */
+  private anchors: WardAnchor[] = [];
+  private ward: SoulShield | null = null;
+  private heldLast = -1;
+  private wardTextIn = 0;
   /** His post. He drifts back to it instead of chasing (story clue). */
   private home: THREE.Vector3 | null = null;
 
@@ -145,6 +152,16 @@ export class Warden extends Entity implements Hurtbox {
   receiveHit(hit: Hit): HitResult {
     if (!this.alive || this.state === 'kneel') return 'immune';
 
+    // Chain Ward: nothing gets through while an anchor stands
+    if (this.warded) {
+      this.ward?.blocked();
+      if (this.wardTextIn <= 0) {
+        this.wardTextIn = 0.5;
+        events.emit('fx:onomatopoeia', { text: 'WARDED! BREAK THE CHAINS', position: this.position.clone().setY(this.height + 0.6), color: '#ffd23a', scale: 0.8 });
+      }
+      return 'blocked';
+    }
+
     // His tower shield blocks anything from the front while he defends, armour or not.
     // A heavy finisher smashes the guard aside instead; a blocked hit may get punished.
     if (this.state === 'defend') {
@@ -152,7 +169,7 @@ export class Warden extends Entity implements Hurtbox {
       if (_v.dot(this.forward) > 0.3) {
         if (hit.kind === 'melee' && hit.heavy) {
           this.setState('recover');
-          this.stateTime = 1.5 - WARDEN.guardBreakStunSec; // recover lasts 1.5 s; this is the stun
+          this.stateTime = WARDEN.recoverSec - WARDEN.guardBreakStunSec; // a longer recover = the stun
           events.emit('fx:onomatopoeia', { text: 'GUARD BREAK!', position: this.position.clone().setY(this.height), color: '#ffc21a', scale: 1.2 });
           events.emit('fx:shake', { strength: 0.3 });
         } else {
@@ -202,11 +219,40 @@ export class Warden extends Entity implements Hurtbox {
     }
   }
 
+  /** Stage 2: chain anchors rise around his post and hold a ward over him until all are broken. */
+  private raiseWard() {
+    const home = this.home ?? this.position;
+    this.anchors = [];
+    for (let i = 0; i < WARDEN.wardAnchors; i++) {
+      const a = (i / WARDEN.wardAnchors) * Math.PI * 2 + Math.PI / 6;
+      const anchor = this.scene.add(new WardAnchor(i));
+      anchor.position.set(home.x + Math.cos(a) * WARDEN.wardAnchorRadius, 0, home.z + Math.sin(a) * WARDEN.wardAnchorRadius);
+      this.anchors.push(anchor);
+    }
+    this.ward = this.scene.add(new SoulShield(this, this.anchors, {
+      color: '#ffb020',
+      chainColor: '#ffd23a',
+      downText: 'WARD BROKEN!',
+      holderChainY: 1.9,
+    }));
+    this.heldLast = -1;
+  }
+
+  private get warded(): boolean {
+    return this.anchors.some((a) => a.alive);
+  }
+
+  private dropWard() {
+    for (const a of this.anchors) if (a.alive) a.destroy();
+    this.anchors = [];
+  }
+
   /** Replace the old armour with a fresh set for the next stage. */
   private advanceStage() {
     this.armourCycle = 2;
     this.armour.dispose();
     this.armour = this.createArmour();
+    this.raiseWard();
     events.emit('narrator:say', { text: SCRIPT.warden.shieldUp, speaker: 'warden', durationSec: 2 });
     events.emit('fx:onomatopoeia', {
       text: 'CLANG!',
@@ -223,6 +269,8 @@ export class Warden extends Entity implements Hurtbox {
     this.armour.update(dt);
     this.stateTime += dt;
     this.attackCooldown -= dt;
+    this.wardTextIn -= dt;
+    this.updateWard();
 
     // Recover from the flinch
     this.meshPivot.position.y += (0 - this.meshPivot.position.y) * 10 * dt;
@@ -355,7 +403,7 @@ export class Warden extends Entity implements Hurtbox {
 
       case 'recover':
         this.velocity.multiplyScalar(0.8);
-        if (this.stateTime > 1.5) this.setState('idle');
+        if (this.stateTime > WARDEN.recoverSec) this.setState('idle');
         break;
 
       case 'kneel':
@@ -517,13 +565,31 @@ export class Warden extends Entity implements Hurtbox {
     }
   }
 
+  /** Boss bar follows the anchors; the last one breaking staggers him (the punish window). */
+  private updateWard() {
+    if (this.armourCycle !== 2 || !this.ward) return;
+    const held = this.anchors.filter((a) => a.alive).length;
+    if (held === this.heldLast) return;
+    const wasUp = this.heldLast > 0;
+    this.heldLast = held;
+    this.emitHealth();
+    if (held === 0 && wasUp && this.state !== 'defeated') {
+      this.ward = null;
+      this.setState('recover');
+      this.stateTime = WARDEN.recoverSec - WARDEN.wardDownStunSec;
+    }
+  }
+
   private emitHealth() {
-    events.emit('boss:health', { bossId: 'warden', name: 'THE WARDEN', hp: this.hp, max: this.maxHp, phase: this.armourCycle });
+    const left = this.anchors.filter((a) => a.alive).length;
+    const shield = left > 0 ? { left, total: WARDEN.wardAnchors, label: 'CHAIN WARD', hint: 'break the chain anchors' } : undefined;
+    events.emit('boss:health', { bossId: 'warden', name: 'THE WARDEN', hp: this.hp, max: this.maxHp, phase: this.armourCycle, shield });
   }
 
   /** Called by the scene's flow:skip handler to instantly end the fight. */
   forceDefeat() {
     if (this.state === 'defeated') return;
+    this.dropWard();
     this.armour.dispose();
     this.armourCycle = 3; // forces HP to 0
     this.setState('defeated');

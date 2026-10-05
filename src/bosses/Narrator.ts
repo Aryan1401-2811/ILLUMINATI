@@ -10,6 +10,7 @@ import type { Hit, HitResult, Hurtbox } from '@/combat/types';
 import { isPositiveResult } from '@/combat/types';
 import { Projectile } from '@/combat/Projectile';
 import { Shockwave } from '@/vfx/Shockwave';
+import { Telegraph } from '@/enemies/fx/Telegraph';
 import { SoulOrb } from './SoulOrb';
 import { SoulShield } from './SoulShield';
 import { disposeBossVisuals, markSharedGeometry } from './dispose';
@@ -53,6 +54,8 @@ export class NarratorBoss extends Entity implements Hurtbox {
   private shieldedTextIn = 0;
   private invulnLeft = 0;
   private pendingEcho = -1;
+  /** Seconds until a telegraphed gold burst goes off (-1 = none pending). */
+  private burstIn = -1;
 
   private meshPivot = new THREE.Group();
   private placeholder = new THREE.Group();
@@ -188,6 +191,10 @@ export class NarratorBoss extends Entity implements Hurtbox {
     }
 
     // Second, smaller shockwave of the gold burst (game time, so it respects hit-stop/pause)
+    if (this.burstIn >= 0) {
+      this.burstIn -= dt;
+      if (this.burstIn < 0) this.detonateBurst();
+    }
     if (this.pendingEcho >= 0) {
       this.pendingEcho -= dt;
       if (this.pendingEcho < 0) this.scene.add(new Shockwave(this.position, 4, '#ff0000'));
@@ -263,8 +270,8 @@ export class NarratorBoss extends Entity implements Hurtbox {
       const targetVel = moveFwd.add(strafe).multiplyScalar(1.5);
       this.velocity.lerp(targetVel, dt * 3);
 
-      if (dist < 6 && this.attackTimer <= 0) {
-        this.attackTimer = 2;
+      if (dist < NARRATOR_BOSS.burstRadius + 1 && this.attackTimer <= 0) {
+        this.attackTimer = NARRATOR_BOSS.burstCooldown;
         this.fireGoldBurst();
       } else if (this.attackTimer <= 0) {
         this.attackTimer = 1.5;
@@ -313,21 +320,33 @@ export class NarratorBoss extends Entity implements Hurtbox {
 
     this.model?.play(ANIM.burst, { loop: false, restart: true, fade: 0.05 });
     this.model?.mixer.addEventListener('finished', this.backToFloat);
-    this.scene.add(new Shockwave(this.position, 6, '#ffc21a'));
+    // Warn first: a circle on the floor, then the blast when it fills
+    this.scene.add(new Telegraph({
+      shape: 'circle',
+      at: this.position.clone(),
+      radius: NARRATOR_BOSS.burstRadius,
+      durationSec: NARRATOR_BOSS.burstWindup,
+      color: '#ffc21a',
+    }));
+    this.burstIn = NARRATOR_BOSS.burstWindup;
+  }
+
+  private detonateBurst() {
+    this.scene.add(new Shockwave(this.position, NARRATOR_BOSS.burstRadius, '#ffc21a'));
     this.pendingEcho = 0.2;
     events.emit('fx:shake', { strength: 0.5 });
     events.emit('fx:onomatopoeia', { text: 'BAM', position: this.position.clone(), scale: 2 });
 
-    const hits = this.scene.combat.querySphere(this.position, 6, 'enemy');
+    const hits = this.scene.combat.querySphere(this.position, NARRATOR_BOSS.burstRadius, 'enemy');
     for (const h of hits) {
       this.scene.combat.applyHit(h, {
-        amount: 25,
+        amount: NARRATOR_BOSS.burstDamage,
         kind: 'energy',
         element: 'gold',
         heavy: true,
         team: 'enemy',
         from: this.position.clone(),
-        knockback: 12,
+        knockback: NARRATOR_BOSS.burstKnockback,
         sourceId: 'narratorBurst',
       });
     }
