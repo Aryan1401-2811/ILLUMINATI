@@ -1,11 +1,23 @@
 import * as THREE from 'three';
 import { Entity } from '@/core/Entity';
 import { events } from '@/core/events';
-import type { SoulOrb } from './SoulOrb';
+/** Anything that holds the shield up while alive (soul orbs, the Warden's chain anchors). */
+export interface ShieldHolder {
+  readonly alive: boolean;
+  readonly position: THREE.Vector3;
+}
+
+export interface ShieldStyle {
+  color?: string;
+  chainColor?: string;
+  /** Shown when the last holder falls. */
+  downText?: string;
+  /** Height on each holder where its chain attaches. */
+  holderChainY?: number;
+}
 
 const RADIUS = 2.3;
 const HEIGHT = 1.8;
-const VIOLET = new THREE.Color('#7f5cff');
 const GOLD = new THREE.Color('#ffc21a');
 
 /**
@@ -24,14 +36,21 @@ export class SoulShield extends Entity {
   private ripple = 0;
   private broken = false;
   private fade = 0;
+  private color: THREE.Color;
+  private downText: string;
+  private holderChainY: number;
 
   constructor(
     private readonly boss: Entity,
-    private readonly orbs: SoulOrb[],
+    private readonly orbs: ShieldHolder[],
+    style: ShieldStyle = {},
   ) {
     super();
+    this.color = new THREE.Color(style.color ?? '#7f5cff');
+    this.downText = style.downText ?? 'SHIELD DOWN!';
+    this.holderChainY = style.holderChainY ?? 0.1;
     this.domeMat = new THREE.MeshBasicMaterial({
-      color: VIOLET.clone().multiplyScalar(1.6),
+      color: this.color.clone().multiplyScalar(1.6),
       transparent: true,
       opacity: 0,
       depthWrite: false,
@@ -46,7 +65,7 @@ export class SoulShield extends Entity {
     this.rim = new THREE.Mesh(new THREE.SphereGeometry(RADIUS * 1.04, 32, 20), this.rimMat);
     this.rim.position.y = HEIGHT;
 
-    this.chainMat = new THREE.LineBasicMaterial({ color: GOLD, transparent: true, opacity: 0.8 });
+    this.chainMat = new THREE.LineBasicMaterial({ color: new THREE.Color(style.chainColor ?? '#ffc21a'), transparent: true, opacity: 0.8 });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(orbs.length * 6), 3));
     this.chains = new THREE.LineSegments(geo, this.chainMat);
@@ -94,7 +113,7 @@ export class SoulShield extends Entity {
     this.dome.scale.setScalar(0.95 + share * 0.05 + this.ripple * 0.08 + wobble);
     this.rim.scale.copy(this.dome.scale);
     this.domeMat.opacity = 0.12 + share * 0.2 + this.ripple * 0.35 + Math.sin(this.t * 3) * 0.03;
-    this.domeMat.color.copy(VIOLET).lerp(GOLD, this.ripple * 0.6).multiplyScalar(1.6);
+    this.domeMat.color.copy(this.color).lerp(GOLD, this.ripple * 0.6).multiplyScalar(1.6);
     this.rimMat.opacity = 0.25 + share * 0.35;
 
     // A gold chain from the shield to every soul still held
@@ -103,14 +122,14 @@ export class SoulShield extends Entity {
       const from = this.boss.position;
       const to = o.alive ? o.position : from;
       pos.setXYZ(i * 2, from.x, HEIGHT, from.z);
-      pos.setXYZ(i * 2 + 1, to.x, to.y + 0.1, to.z);
+      pos.setXYZ(i * 2 + 1, to.x, to.y + (o.alive ? this.holderChainY : HEIGHT), to.z);
     });
     pos.needsUpdate = true;
   }
 
   private burst() {
     this.broken = true;
-    events.emit('fx:onomatopoeia', { text: 'SHIELD DOWN!', position: this.boss.position.clone().setY(3.5), color: '#c9b2ff', scale: 1.6 });
+    events.emit('fx:onomatopoeia', { text: this.downText, position: this.boss.position.clone().setY(3.5), color: '#c9b2ff', scale: 1.6 });
     events.emit('fx:shake', { strength: 0.5 });
     events.emit('fx:hitstop', { durationSec: 0.12 });
   }

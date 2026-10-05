@@ -113,7 +113,7 @@ export const BRUTE_BASE: BruteStats = {
   hp: 80,
   damage: 15,
   slamDamage: 20,
-  chargeDamage: 8,
+  chargeDamage: 11,
   knockback: 5,
   slamKnockback: 8,
   moveSpeed: 2.8,
@@ -138,8 +138,8 @@ export const BRUTE_BASE: BruteStats = {
 
 export const BRUTE_ZONES: Record<1 | 2 | 3, Partial<BruteStats>> = {
   1: {},
-  2: { hp: 70, shellHp: 30, coreHp: 25, slamDamage: 14, scaleMul: 1.05 },
-  3: { hp: 88, shellHp: 38, coreHp: 31, slamDamage: 18, chargeDamage: 10, chargeSpeed: 12, moveSpeed: 3.2, scaleMul: 1.15 },
+  2: { hp: 70, shellHp: 30, coreHp: 25, slamDamage: 18, scaleMul: 1.05 },
+  3: { hp: 88, shellHp: 38, coreHp: 31, slamDamage: 22, chargeDamage: 13, chargeSpeed: 12, moveSpeed: 3.2, scaleMul: 1.15 },
 };
 
 // ── Armour defaults ─────────────────────────────────────────────────────────

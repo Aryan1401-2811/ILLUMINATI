@@ -152,7 +152,7 @@ export class Hud {
       this.boss.classList.toggle('shielded', shielded);
       if (shielded) {
         const pips = Array.from({ length: shield!.total }, (_, i) => `<i class="${i < shield!.left ? 'on' : ''}"></i>`).join('');
-        this.bossPhase.innerHTML = `<span class="shield-label">SOUL SHIELD</span><span class="shield-pips">${pips}</span><span class="shield-hint">strike the orbs to free them</span>`;
+        this.bossPhase.innerHTML = `<span class="shield-label">${shield!.label ?? 'SOUL SHIELD'}</span><span class="shield-pips">${pips}</span><span class="shield-hint">${shield!.hint ?? 'strike the orbs to free them'}</span>`;
       } else {
         this.bossPhase.textContent = phase > 1 ? `PHASE ${phase}` : '';
       }

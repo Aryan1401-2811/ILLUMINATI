@@ -4,22 +4,22 @@ export const WARDEN = {
   height: 2.6,
   mass: 10,                    // bosses are heavy, don't get pushed
   moveSpeed: 2.5,              // slow, deliberate
-  shieldBashDamage: 10,        // R2: 15 → 10
+  shieldBashDamage: 16,
   shieldBashKnockback: 12,
-  groundPoundDamage: 8,        // R2: 10 → 8
+  groundPoundDamage: 13,
   groundPoundKnockback: 15,
   groundPoundRadius: 4,
   bashWindup: 0.875,           // R2: 0.7 → +25% (more time to read telegraph)
   poundWindup: 1.0,            // R2: 0.8 → +25%
   attackCooldown: 1.5,         // a real boss: attacks whenever this is ready
-  stage2CooldownMul: 0.75,     // angrier after SHIELD UP! (~1.1 s)
+  stage2CooldownMul: 0.7,      // angrier after SHIELD UP! (~1.05 s)
   minAttackGap: 0.8,           // idle beat before he decides again
   // Shield Charge: his answer to a hero who keeps away from him
   chargeWindup: 0.9,
   chargeSpeed: 13,
   chargeRange: 9,
   chargeWidth: 1.8,
-  chargeDamage: 10,
+  chargeDamage: 15,
   chargeKnockback: 10,
   // Guard: blocks frontal hits; a heavy finisher breaks it, a blocked hit may be punished
   defendSec: 1.2,
@@ -28,6 +28,11 @@ export const WARDEN = {
   riposteChance: 0.6,
   riposteWindup: 0.55,
   guardBreakStunSec: 1.4,
+  // Stage 2 Chain Ward: anchors around his post hold a dome over him until all are broken
+  wardAnchors: 3,
+  wardAnchorHp: 45,
+  wardAnchorRadius: 6,
+  wardDownStunSec: 2.2,
   armourShellHp: 80,
   armourCoreHp: 60,
   staggerSec: 2.5,             // how long the Warden kneels between stages
