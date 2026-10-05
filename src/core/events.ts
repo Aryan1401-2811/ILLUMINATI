@@ -63,8 +63,12 @@ export interface GameEvents {
   'narrator:growth': { value: number };
   /** New game: restore the unbroken caption box (growth is re-read from runState). */
   'narrator:reset': Record<string, never>;
-  /** Settings changed (volume 0..1, screen shake on/off). Saved in localStorage by core/settings. */
-  'settings:changed': { master: number; music: number; sfx: number; screenShake: boolean };
+  /** A queued caption line starts typing now. `durationSec` = roughly how long it is on screen. Voice speaks it. */
+  'narrator:lineStart': { text: string; speaker: 'narrator' | 'warden' | 'hero'; durationSec: number };
+  /** The player pressed Enter to skip the line being typed. */
+  'narrator:lineSkipped': Record<string, never>;
+  /** Settings changed (volume 0..1, screen shake / voice on/off). Saved in localStorage by core/settings. */
+  'settings:changed': { master: number; music: number; sfx: number; screenShake: boolean; voice: boolean };
   /** Show a tutorial prompt like "Press SPACE to dodge". */
   'ui:prompt': { text: string; durationSec?: number };
   /** Skip the current fight (death screen / pause menu, for testers and judges). */

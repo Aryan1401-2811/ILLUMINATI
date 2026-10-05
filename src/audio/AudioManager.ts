@@ -6,6 +6,7 @@ export type Bus = 'master' | 'music' | 'sfx';
 const SETTINGS_KEY = 'falseDawn.settings';
 const DEFAULTS: Record<Bus, number> = { master: 0.8, music: 0.7, sfx: 0.9 };
 const PAUSE_DUCK = 0.3;
+const VOICE_DUCK = 0.4;
 
 function loadVolumes(): Record<Bus, number> {
   const out = { ...DEFAULTS };
@@ -34,6 +35,7 @@ class AudioManager {
 
   private gains = {} as Record<Bus, GainNode>;
   private duck!: GainNode;
+  private voiceDuck!: GainNode;
   private volumes = loadVolumes();
   private muted = false;
   private readyFns: ((ctx: AudioContext) => void)[] = [];
@@ -63,6 +65,10 @@ class AudioManager {
     this.apply();
   }
 
+  get isMuted(): boolean {
+    return this.muted;
+  }
+
   toggleMute(): boolean {
     this.muted = !this.muted;
     this.apply();
@@ -71,6 +77,11 @@ class AudioManager {
 
   setDucked(ducked: boolean): void {
     if (this.ctx) this.duck.gain.setTargetAtTime(ducked ? PAUSE_DUCK : 1, this.ctx.currentTime, 0.15);
+  }
+
+  /** Music dips under spoken lines (separate from the pause duck, so the two stack). */
+  setVoiceDucked(ducked: boolean): void {
+    if (this.ctx) this.voiceDuck.gain.setTargetAtTime(ducked ? VOICE_DUCK : 1, this.ctx.currentTime, ducked ? 0.08 : 0.4);
   }
 
   private unlock = () => {
@@ -96,8 +107,10 @@ class AudioManager {
     sfx.connect(master);
     this.gains = { master, music, sfx };
 
+    this.voiceDuck = ctx.createGain();
+    this.voiceDuck.connect(music);
     this.duck = ctx.createGain();
-    this.duck.connect(music);
+    this.duck.connect(this.voiceDuck);
     this.noise = makeNoise(ctx);
     const impulse = makeImpulse(ctx, 2.6);
     const reverb = (into: AudioNode) => {

@@ -9,10 +9,12 @@ export interface Settings {
   music: number;
   sfx: number;
   screenShake: boolean;
+  /** Characters speak their lines aloud (Web Speech). */
+  voice: boolean;
 }
 
 const KEY = 'falseDawn.settings';
-const DEFAULTS: Settings = { master: 0.8, music: 0.7, sfx: 0.9, screenShake: true };
+const DEFAULTS: Settings = { master: 0.8, music: 0.7, sfx: 0.9, screenShake: true, voice: true };
 
 function load(): Settings {
   try {

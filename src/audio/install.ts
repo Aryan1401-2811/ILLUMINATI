@@ -2,6 +2,7 @@ import { events, type StoryBeat } from '@/core/events';
 import { audio } from './AudioManager';
 import { Music, type TrackId } from './music';
 import { playSfx } from './sfx';
+import { cancelVoice, installVoice } from './voice';
 
 function trackForScene(sceneId: string): TrackId {
   const id = sceneId === 'visuals' ? (new URLSearchParams(location.search).get('view') ?? 'zone1') : sceneId;
@@ -30,6 +31,7 @@ const BEAT_TRACKS: Partial<Record<StoryBeat, TrackId>> = {
 /** Wires music and sound effects to game events. Call once from main.ts. */
 export function installAudio(): void {
   const music = new Music();
+  installVoice();
 
   events.on('scene:loaded', ({ sceneId }) => {
     music.play(trackForScene(sceneId));
@@ -93,6 +95,6 @@ export function installAudio(): void {
     if ((e.target as Element | null)?.closest?.('.comic-btn, button')) playSfx('uiClick');
   });
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyM' && !e.repeat) audio.toggleMute();
+    if (e.code === 'KeyM' && !e.repeat && audio.toggleMute()) cancelVoice();
   });
 }

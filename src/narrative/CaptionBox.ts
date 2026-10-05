@@ -4,6 +4,7 @@ import { getGame } from '@/core/Game';
 import { input } from '@/core/input';
 import { runState } from '@/core/runState';
 import { time } from '@/core/time';
+import { isVoiceSpeaking } from '@/audio/voice';
 import { blip, type BlipVoice } from './blips';
 import { NARRATOR } from './config';
 import { Shatter, clearCracks, crackElement } from './shatter';
@@ -126,13 +127,18 @@ export class CaptionBox {
 
     const a = this.active;
     if (a) {
-      if (!a.panel.writer.done && input.pressedRaw('skip')) a.panel.writer.finish();
+      if (!a.panel.writer.done && input.pressedRaw('skip')) {
+        a.panel.writer.finish();
+        events.emit('narrator:lineSkipped', {});
+      }
       const speed = a.panel === this.box ? NARRATOR.charsPerSec + (NARRATOR.charsPerSecAtFull - NARRATOR.charsPerSec) * this.growth : NARRATOR.charsPerSec;
       a.panel.writer.update(realDt, speed);
       if (a.panel.writer.done) {
         a.held += realDt;
         const limit = this.queue.length ? Math.min(a.hold, NARRATOR.queuedHoldSec) : a.hold;
-        if (a.held >= limit) {
+        // Let a spoken line finish its sentence, but never stall the story for long.
+        const voiceGrace = !isVoiceSpeaking() ? 0 : this.queue.length ? NARRATOR.voiceGraceQueuedSec : NARRATOR.voiceGraceSec;
+        if (a.held >= limit + voiceGrace) {
           this.retire(a.panel);
           this.active = null;
         }
@@ -151,6 +157,11 @@ export class CaptionBox {
     const plain = line.text.replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1');
     const hold = line.durationSec ?? Math.max(NARRATOR.minHoldSec, plain.length * NARRATOR.holdPerChar);
     this.active = { line, panel, held: 0, hold };
+    // The shortest this line can stay up: cutscenes send the next line after durationSec,
+    // and a queued line still gets its typing time plus the short queued hold.
+    const typing = plain.length / NARRATOR.charsPerSec;
+    const onScreen = Math.max(line.durationSec ?? typing + hold, typing + NARRATOR.queuedHoldSec);
+    events.emit('narrator:lineStart', { text: line.text, speaker: line.speaker, durationSec: onScreen });
   }
 
   /** Line finished: the caption box dims but stays, bubbles disappear. */
