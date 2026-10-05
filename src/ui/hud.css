@@ -223,11 +223,23 @@
 .hud-death {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
   background: rgba(26, 16, 19, 0.45);
   animation: death-in 0.5s ease-out;
 }
+.hud-death-actions { display: none; flex-direction: column; align-items: center; gap: 10px; }
+.hud-death.choice .hud-death-actions {
+  display: flex;
+  pointer-events: auto;
+  animation: death-in 0.4s ease-out 0.8s backwards;
+}
+.hud-death-actions .comic-btn { min-width: 260px; }
+.hud-death-actions small { font-size: 0.6em; opacity: 0.6; margin-left: 6px; }
+.hud-death-actions p { margin: 0; color: #fffaf0; font-size: 14px; text-shadow: 1px 1px 0 var(--ink); }
 .hud-death-panel {
   font-size: clamp(40px, 7vw, 86px);
   color: #fffaf0;

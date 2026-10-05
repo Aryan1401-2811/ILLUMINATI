@@ -20,6 +20,8 @@ export const runState = {
   deaths: 0,
   /** Id of the last scene reached, for retry-on-death. */
   checkpoint: '',
+  /** Fight to resume at inside the checkpoint zone (0 = from the zone's start). */
+  fight: 0,
   /** Seconds played (for pacing checks). */
   playTime: 0,
 
@@ -33,6 +35,7 @@ export const runState = {
       narratorGrowth: 0,
       deaths: 0,
       checkpoint: '',
+      fight: 0,
       playTime: 0,
     });
   },

@@ -8,7 +8,9 @@ import type { EnemyType } from '@/enemies/spawn';
 import type { ZoneLayout } from '@/world/zones';
 import { Sequence } from '@/sequences/Sequence';
 import type { Line, ZoneLines } from '../script';
-import { goTo, nextAfter, retry } from '../flow';
+import { Enemy } from '@/enemies/Enemy';
+import { runState } from '@/core/runState';
+import { goTo, nextAfter, saveCheckpoint } from '../flow';
 import { prompt } from '../guide';
 import { ExitMarker } from './ExitMarker';
 
@@ -23,8 +25,6 @@ const UNLOADED = Symbol('scene unloaded');
 const ZONE = {
   /** Breather between fights, after the "cleared" banter. */
   gapSec: 1.5,
-  /** Seconds after death before the checkpoint reloads (the death screen shows meanwhile). */
-  retryDelayMs: 2600,
   exitRadius: 2.2,
 };
 
@@ -43,6 +43,8 @@ export abstract class ZoneScene extends GameScene {
   protected layout!: ZoneLayout;
   protected seq!: Sequence;
   private started = false;
+  /** Finishes the running fight early (skip); null between fights. */
+  private endFight: (() => void) | null = null;
 
   async load() {
     // Zones are all before the twist: the world is still gold
@@ -57,11 +59,21 @@ export abstract class ZoneScene extends GameScene {
     this.player.loadFromRun();
     this.cameraRig.follow(this.player.object);
 
-    this.listen(events.on('player:died', () => {
-      setTimeout(() => {
-        if (this.game.current === this) void retry();
-      }, ZONE.retryDelayMs);
+    // Death: the HUD's death screen offers RETRY (flow.retry) or SKIP (flow:skip below)
+    this.listen(events.on('flow:skip', ({ sceneId }) => {
+      if (sceneId === this.id) this.skipFight();
     }));
+  }
+
+  /** Count the running fight as won: clear its enemies (no kills, no wisps) and revive. */
+  private skipFight() {
+    if (!this.endFight) {
+      events.emit('ui:prompt', { text: 'No fight to skip right now.', durationSec: 2 });
+      return;
+    }
+    for (const e of this.getAll(Enemy)) e.destroy();
+    if (this.player.state === 'dead' || this.player.hp < this.player.maxHp * 0.6) this.player.revive();
+    this.endFight();
   }
 
   protected onUpdate() {
@@ -76,15 +88,24 @@ export abstract class ZoneScene extends GameScene {
   }
 
   private async run() {
+    const resumeAt = runState.fight;
     this.beat(`${this.id}:start` as StoryBeat);
-    prompt('move');
-    await this.sayAll(this.lines.intro);
+    if (resumeAt === 0) {
+      prompt('move');
+      await this.sayAll(this.lines.intro);
+    } else {
+      events.emit('ui:prompt', { text: 'Back to the fight!', durationSec: 2 });
+    }
     await this.beforeFights();
 
-    for (let i = 0; i < this.fights.length; i++) {
+    for (let i = resumeAt; i < this.fights.length; i++) {
       const lines = this.lines.fights[i];
       if (lines) await this.sayAll(lines.before);
       await this.fight(i);
+      // Fight checkpoint: dying from here on restarts at the next fight, not the zone
+      runState.fight = i + 1;
+      this.player.saveToRun();
+      saveCheckpoint();
       if (lines) await this.sayAll(lines.after);
       await this.step(this.seq.wait(ZONE.gapSec));
     }
@@ -119,12 +140,16 @@ export abstract class ZoneScene extends GameScene {
     enc.start();
     if (this.zone === 1 && i === 0) prompt('attack');
     return this.step(new Promise<void>((resolve) => {
-      const off = events.on('encounter:cleared', ({ encounterId }) => {
-        if (encounterId !== id) return;
+      const end = () => {
         off();
+        this.endFight = null;
         enc.destroy();
         resolve();
+      };
+      const off = events.on('encounter:cleared', ({ encounterId }) => {
+        if (encounterId === id) end();
       });
+      this.endFight = end;
       this.listen(off);
     }));
   }
