@@ -1,6 +1,6 @@
 import { events } from '@/core/events';
 import { settings, updateSettings } from '@/core/settings';
-import { retry, toTitle } from '@/narrative/flow';
+import { retry, skip, SKIPPABLE, toTitle } from '@/narrative/flow';
 
 /** Scenes where Esc pauses (not the title or the ending). */
 const PAUSABLE = new Set(['zone1', 'zone2', 'zone3', 'warden', 'final', 'playground', 'enemies', 'bosses', 'visuals']);
@@ -23,6 +23,7 @@ export class PauseMenu {
         <button class="comic-btn" data-act="resume">RESUME</button>
         <button class="comic-btn" data-act="settings">SETTINGS</button>
         <button class="comic-btn" data-act="restart">RESTART CHECKPOINT</button>
+        <button class="comic-btn" data-act="skip">SKIP FIGHT</button>
         <button class="comic-btn" data-act="quit">QUIT TO TITLE</button>
       </div>
     `;
@@ -34,6 +35,10 @@ export class PauseMenu {
       const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
       if (act === 'resume') this.set(false);
       else if (act === 'settings') this.showSettings();
+      else if (act === 'skip') {
+        this.set(false);
+        skip();
+      }
       else if (act === 'restart' || act === 'quit') {
         this.set(false);
         void (act === 'restart' ? retry() : toTitle());
@@ -61,6 +66,7 @@ export class PauseMenu {
   }
 
   private showMenu() {
+    this.el.querySelector('[data-act="skip"]')!.classList.toggle('hidden', !SKIPPABLE.has(document.body.dataset.scene ?? ''));
     this.el.querySelector('.comic-menu')!.classList.remove('hidden');
     this.el.querySelector('.pause-logo')!.classList.remove('hidden');
     this.settingsEl.classList.add('hidden');

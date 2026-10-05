@@ -1,5 +1,6 @@
 import type { Element } from '@/combat/types';
 import { events } from './events';
+import { PLAYER } from './config';
 
 /**
  * Everything that must survive moving from one scene to the next during a playthrough
@@ -9,7 +10,7 @@ import { events } from './events';
  *   player.loadFromRun() / player.saveToRun()
  */
 export const runState = {
-  hp: 100,
+  hp: PLAYER.maxHp,
   energy: 0,
   loadout: [null, null, null] as (string | null)[],
   element: 'gold' as Element,
@@ -20,12 +21,14 @@ export const runState = {
   deaths: 0,
   /** Id of the last scene reached, for retry-on-death. */
   checkpoint: '',
+  /** Fight to resume at inside the checkpoint zone (0 = from the zone's start). */
+  fight: 0,
   /** Seconds played (for pacing checks). */
   playTime: 0,
 
   reset() {
     Object.assign(this, {
-      hp: 100,
+      hp: PLAYER.maxHp,
       energy: 0,
       loadout: [null, null, null],
       element: 'gold',
@@ -33,6 +36,7 @@ export const runState = {
       narratorGrowth: 0,
       deaths: 0,
       checkpoint: '',
+      fight: 0,
       playTime: 0,
     });
   },

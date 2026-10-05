@@ -2,6 +2,7 @@ import { events } from '@/core/events';
 import { getGame } from '@/core/Game';
 import { PLAYER } from '@/core/config';
 import { Player } from '@/player/Player';
+import { retry, skip, SKIPPABLE } from '@/narrative/flow';
 import { EnemyBars } from './EnemyBars';
 import { PauseMenu } from './PauseMenu';
 import './hud.css';
@@ -74,7 +75,14 @@ export class Hud {
         </div>
       </div>
       <div class="hud-prompt hidden"></div>
-      <div class="hud-death hidden"><div class="hud-death-panel">TO BE CONTINUED…<span>?</span></div></div>
+      <div class="hud-death hidden">
+        <div class="hud-death-panel">TO BE CONTINUED…<span>?</span></div>
+        <div class="hud-death-actions">
+          <button class="comic-btn" data-death="retry">RETRY <small>ENTER</small></button>
+          <button class="comic-btn" data-death="skip">SKIP FIGHT <small>K</small></button>
+          <p>Skip is for testers &amp; judges</p>
+        </div>
+      </div>
     `;
     root.appendChild(this.el);
     const q = <T extends HTMLElement>(s: string) => this.el.querySelector<T>(s)!;
@@ -112,7 +120,23 @@ export class Hud {
       this.slots[4].classList.toggle('active', active);
     });
     events.on('player:block', ({ broken }) => this.bump(this.slots[4], broken ? 'deny' : 'flash'));
-    events.on('player:died', () => this.death.classList.remove('hidden'));
+    events.on('player:died', () => {
+      // Only scenes that handle skip wait for a choice; the rest revive on their own
+      this.death.classList.toggle('choice', SKIPPABLE.has(getGame().currentId));
+      this.death.classList.remove('hidden');
+    });
+    const choose = (act: string | undefined) => {
+      if (!act || this.death.classList.contains('hidden') || !this.death.classList.contains('choice')) return;
+      this.death.classList.remove('choice');
+      if (act === 'retry') void retry();
+      else skip();
+    };
+    this.death.addEventListener('click', (e) => choose((e.target as HTMLElement).closest<HTMLElement>('[data-death]')?.dataset.death));
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      if (e.code === 'Enter') choose('retry');
+      else if (e.code === 'KeyK') choose('skip');
+    });
     events.on('ui:prompt', ({ text, durationSec }) => {
       this.prompt.textContent = text;
       this.prompt.classList.remove('hidden');
