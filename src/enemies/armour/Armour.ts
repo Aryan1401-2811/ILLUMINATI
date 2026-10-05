@@ -260,7 +260,6 @@ export class Armour {
 
       // Timer ring shrinks if it regrows
       if (this.cfg.regrows) {
-        this.coreTimer -= dt;
         const timerFrac = Math.max(0, this.coreTimer / this.cfg.coreWindowSec);
         this.timerMat.opacity = 0.7;
         // Show the remaining arc by drawing only part of the full ring (6 indices per segment)
