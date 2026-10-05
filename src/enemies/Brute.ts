@@ -29,6 +29,7 @@ export class Brute extends Enemy {
   private attackType: 'slam' | 'charge' = 'slam';
   private attackHitDone = false;
   private chargeDir = new THREE.Vector3();
+  private attackCooldown = 0;
 
   constructor(zone: 1 | 2 | 3 = 2, variant: 'normal' | 'gold' = 'normal') {
     const stats = { ...BRUTE_BASE, ...BRUTE_ZONES[zone] };
@@ -118,13 +119,17 @@ export class Brute extends Enemy {
     const dir = this.dirToPlayer();
     this.velocity.copy(dir).multiplyScalar(this.cfg.moveSpeed);
 
-    // Decide which attack to use
-    if (dist < this.cfg.attackRange * 1.2) {
-      this.attackType = 'slam';
-      this.setAIState('windup');
-    } else if (dist < this.stats.chargeRange && dist > this.cfg.attackRange * 1.5 && this.chance(0.3, dt)) {
-      this.attackType = 'charge';
-      this.setAIState('windup');
+    // Decide which attack to use (with cooldown to prevent spamming)
+    if (this.attackCooldown > 0) {
+      this.attackCooldown -= dt;
+    } else {
+      if (dist < this.cfg.attackRange * 1.2) {
+        this.attackType = 'slam';
+        this.setAIState('windup');
+      } else if (dist < this.stats.chargeRange && dist > this.cfg.attackRange * 1.5 && this.chance(0.3, dt)) {
+        this.attackType = 'charge';
+        this.setAIState('windup');
+      }
     }
 
     if (dist > this.cfg.chaseRange * 1.2) {
@@ -276,6 +281,7 @@ export class Brute extends Enemy {
     this.model?.play(ENEMY_ANIMS.idle);
     // Brute has a longer recovery
     if (this.stateTime >= this.cfg.recoverySec) {
+      this.attackCooldown = 1.5; // Gap before next attack
       this.setAIState('chase');
     }
   }

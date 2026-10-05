@@ -77,8 +77,8 @@ export const GRUNT_BASE: GruntStats = {
 
 export const GRUNT_ZONES: Record<1 | 2 | 3, Partial<GruntStats>> = {
   1: {},                                            // default
-  2: { hp: 50, damage: 10, moveSpeed: 5.0, scaleMul: 1.05 },
-  3: { hp: 65, damage: 13, moveSpeed: 5.5, scaleMul: 1.1, hesitateProbability: 0.008 },
+  2: { hp: 50, damage: 8, moveSpeed: 5.0, scaleMul: 1.05 },
+  3: { hp: 65, damage: 10, moveSpeed: 5.5, scaleMul: 1.1, hesitateProbability: 0.008 },
 };
 
 // ── Brute ────────────────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export const BRUTE_BASE: BruteStats = {
   hp: 80,
   damage: 15,
   slamDamage: 20,
-  chargeDamage: 12,
+  chargeDamage: 8,
   knockback: 5,
   slamKnockback: 8,
   moveSpeed: 2.8,
@@ -121,12 +121,12 @@ export const BRUTE_BASE: BruteStats = {
   attackRange: 2.5,
   slamRadius: 3.5,
   chargeRange: 10,
-  chargeSpeed: 14,
+  chargeSpeed: 11,
   chargeWidth: 1.8,
-  windupSec: 0.7,
-  chargeWindupSec: 0.8,
+  windupSec: 0.95,
+  chargeWindupSec: 1.1,
   activeSec: 0.12,
-  recoverySec: 0.8,
+  recoverySec: 1.2,
   shellHp: 40,
   coreHp: 30,
   coreWindowSec: 4.0,
@@ -138,8 +138,8 @@ export const BRUTE_BASE: BruteStats = {
 
 export const BRUTE_ZONES: Record<1 | 2 | 3, Partial<BruteStats>> = {
   1: {},
-  2: { hp: 100, shellHp: 50, coreHp: 35, slamDamage: 22, scaleMul: 1.05 },
-  3: { hp: 130, shellHp: 65, coreHp: 45, slamDamage: 25, moveSpeed: 3.2, scaleMul: 1.15 },
+  2: { hp: 70, shellHp: 30, coreHp: 25, slamDamage: 14, scaleMul: 1.05 },
+  3: { hp: 88, shellHp: 38, coreHp: 31, slamDamage: 18, chargeDamage: 10, chargeSpeed: 12, moveSpeed: 3.2, scaleMul: 1.15 },
 };
 
 // ── Armour defaults ─────────────────────────────────────────────────────────
