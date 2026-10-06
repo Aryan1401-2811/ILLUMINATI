@@ -63,7 +63,7 @@ export function saveCheckpoint(): void {
 }
 
 /** Scenes that handle flow:skip (bosses can join by listening and adding their id). */
-export const SKIPPABLE = new Set<string>(['zone1', 'zone2', 'zone3']);
+export const SKIPPABLE = new Set<string>(['zone1', 'zone2', 'zone3', 'warden', 'final']);
 
 /** Skip the current fight. The scene listening for flow:skip does the actual work. */
 export function skip(): void {

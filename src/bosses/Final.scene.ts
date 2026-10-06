@@ -38,35 +38,45 @@ class FinalScene extends GameScene {
       seq.unlockPlayer();
     })();
     
-    // Defeat cinematic
+    // ── Defeat cinematic (shared by real kill and skip) ────────────────
+    let defeated = false;
     this.listen(events.on('boss:defeated', async ({ bossId }) => {
-      if (bossId === 'narrator') {
-        const endSeq = new Sequence(this);
-        endSeq.setSkippable(false);
-        await endSeq.lockPlayer();
-        
-        endSeq.slowMo(0.15, 4);
-        endSeq.shake(1.5);
-        events.emit('fx:onomatopoeia', { text: 'THE PAGES... THEY TEAR... I AM... ENDLESS—!', position: narrator.position.clone(), scale: 3 });
-        
-        // Massive flash of light
-        events.emit('palette:set', { mode: 'gold', durationSec: 0.1 });
-        await endSeq.wait(0.2);
-        events.emit('palette:set', { mode: 'violet', durationSec: 0.1 });
-        await endSeq.wait(0.2);
-        
-        // Every remaining soul charge freed at once
-        while(souls.charges < 5) souls.addCharge();
-        
-        await endSeq.say("The final period is mine.", 4, 'hero');
-        
-        endSeq.beat('final:defeated');
-        narrator.destroy();
-        await endSeq.wait(2);
-        
-        // Load ending scene (owned by Narrative person)
-        await this.game.loadScene('ending');
-      }
+      if (bossId !== 'narrator' || defeated) return;
+      defeated = true;
+
+      const endSeq = new Sequence(this);
+      endSeq.setSkippable(false);
+      await endSeq.lockPlayer();
+      
+      endSeq.slowMo(0.15, 4);
+      endSeq.shake(1.5);
+      events.emit('fx:onomatopoeia', { text: 'THE PAGES... THEY TEAR... I AM... ENDLESS—!', position: narrator.position.clone(), scale: 3 });
+      
+      // Massive flash of light
+      events.emit('palette:set', { mode: 'gold', durationSec: 0.1 });
+      await endSeq.wait(0.2);
+      events.emit('palette:set', { mode: 'violet', durationSec: 0.1 });
+      await endSeq.wait(0.2);
+      
+      // Every remaining soul charge freed at once
+      while(souls.charges < 5) souls.addCharge();
+      
+      await endSeq.say("The final period is mine.", 4, 'hero');
+      
+      endSeq.beat('final:defeated');
+      narrator.destroy();
+      await endSeq.wait(2);
+      
+      // Load ending scene (owned by Narrative person)
+      await this.game.loadScene('ending');
+    }));
+
+    // ── R2 Task 4: SKIP support ───────────────────────────────────────
+    this.listen(events.on('flow:skip', ({ sceneId }) => {
+      if (sceneId !== 'final' || defeated) return;
+      // Force the Narrator through the normal defeat path
+      narrator.forceDefeat();
+      // boss:defeated event is emitted by forceDefeat, picked up by the listener above
     }));
     
     // Player death handling
