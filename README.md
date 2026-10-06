@@ -2,7 +2,7 @@
 
 *A comic-book action game where the light was never on your side.*
 
-**Play it:** itch.io link — _coming soon_
+**Play it:** https://amey-op.itch.io/false-dawn — _coming soon_
 **Latest dev build:** GitHub Pages — _enabled once Pages is switched on (Settings → Pages → Source: GitHub Actions)_
 
 Themes: **Comic · Twist · Light** — Team **Illuminati**
