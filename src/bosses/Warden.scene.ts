@@ -60,10 +60,6 @@ class WardenScene extends GameScene {
       triggerDefeat();
     }));
     
-    // Player death handling
-    this.listen(events.on('player:died', () => {
-      setTimeout(() => player.revive(layout.playerSpawn.clone()), 2000);
-    }));
   }
 }
 

@@ -79,10 +79,6 @@ class FinalScene extends GameScene {
       // boss:defeated event is emitted by forceDefeat, picked up by the listener above
     }));
     
-    // Player death handling
-    this.listen(events.on('player:died', () => {
-      setTimeout(() => player.revive(layout.playerSpawn.clone()), 2000);
-    }));
   }
 }
 

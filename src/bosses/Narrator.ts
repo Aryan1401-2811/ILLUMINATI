@@ -124,11 +124,16 @@ export class NarratorBoss extends Entity implements Hurtbox {
     let result: HitResult;
     if (this.phase === 1) {
       const at = this.position.clone().setY(this.height * 0.6);
-      result = this.armour?.handleHit(hit, at) ?? 'immune';
-      // Only the core costs him health; cracking plates just opens him up
-      if (result === 'coreHit') this.hp = Math.max(this.maxHp * NARRATOR_BOSS.phase2HpThreshold, this.hp - hit.amount);
-      if (result === 'shellBroken') events.emit('fx:shake', { strength: 0.3 });
-      // R2: armour broken = broken for good in this stage; no regrow timer.
+      const res = this.armour?.handleHit(hit, at);
+      if (res == null) {
+        // plates gone: he takes normal damage until phase 2
+        this.hp = Math.max(this.maxHp * NARRATOR_BOSS.phase2HpThreshold, this.hp - hit.amount);
+        result = 'damaged';
+      } else {
+        result = res;
+        if (result === 'coreHit') this.hp = Math.max(this.maxHp * NARRATOR_BOSS.phase2HpThreshold, this.hp - hit.amount);
+        if (result === 'shellBroken') events.emit('fx:shake', { strength: 0.3 });
+      }
     } else if (this.orbs.some((o) => o.alive)) {
       // The souls he wears shield him: free them first
       events.emit('fx:onomatopoeia', { text: 'SHIELDED!', position: this.position.clone().setY(3), color: '#c9b2ff', scale: 0.8 });

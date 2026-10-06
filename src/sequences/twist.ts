@@ -255,8 +255,14 @@ export async function runTwist(scene: GameScene, player: Player, warden: Warden)
     const escape = scene.add(new DebrisRain(player));
     rain = escape;
 
-    // Wait until player reaches Warden OR time runs out
-    await seq.until(() => player.position.distanceTo(warden.position) < 3 || escape.done);
+    let skipped = false;
+    const offSkip = events.on('flow:skip', ({ sceneId }) => {
+      if (sceneId === 'warden') skipped = true;
+    });
+
+    // Wait until player reaches Warden OR time runs out OR skipped
+    await seq.until(() => player.position.distanceTo(warden.position) < 3 || escape.done || skipped);
+    offSkip();
     escape.destroy();
     rain = undefined;
 

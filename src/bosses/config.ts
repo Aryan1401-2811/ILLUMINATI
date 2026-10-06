@@ -11,7 +11,7 @@ export const WARDEN = {
   groundPoundRadius: 4,
   bashWindup: 0.875,           // R2: 0.7 → +25% (more time to read telegraph)
   poundWindup: 1.0,            // R2: 0.8 → +25%
-  attackCooldown: 3.2,         // R2: 4 → 3.2 (compensates lower damage with slightly faster cadence)
+  attackCooldown: 4,           // rarely attacks
   minAttackGap: 1.2,           // R2: no two attacks chain without ≥1.2 s gap
   armourShellHp: 80,
   armourCoreHp: 60,
